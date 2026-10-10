@@ -132,6 +132,9 @@ impl eframe::App for App {
                 let _ = self.tx.send(Input::Answer { id: *id, answer: DialogAnswer::File(path) });
             }
         }
+        for c in std::mem::take(&mut self.harness.ui_commands) {
+            self.ui.debug_command(&c);
+        }
         self.ui.show(ctx, &snap, fx, &self.assets, &self.tx);
     }
 }

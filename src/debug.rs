@@ -3,7 +3,8 @@
 //! * `POKEGAME_AUTOPLAY=<script>` — replay UI actions. One command per line:
 //!   `wait <ms>` | `click <Form> <Control>` | `dblclick <Form> <Control>` | `menu <Form> <Item>` |
 //!   `select <Form> <Control> <index>` | `text <Form> <Control> <text>` | `answer <modal result>` |
-//!   `file <path>` (answers the next file dialog) | `shot <name>` | `quit`
+//!   `file <path>` (answers the next file dialog) | `shot <name>` | `quit` |
+//!   `ui <command>` (front-end only, see `GameUi::debug_command`: `sheet <name>`, `cards <a/b>`)
 
 use crate::vcl::runtime::{DialogAnswer, Event, Input, Snapshot};
 use std::collections::VecDeque;
@@ -18,6 +19,8 @@ pub struct Harness {
     pending_shot: Option<String>,
     pub pending_file: Option<String>,
     shot_count: usize,
+    /// `ui ...` commands for the front-end, drained by the app each frame.
+    pub ui_commands: Vec<String>,
 }
 
 impl Harness {
@@ -34,6 +37,7 @@ impl Harness {
             pending_shot: None,
             pending_file: None,
             shot_count: 0,
+            ui_commands: Vec::new(),
         }
     }
 
@@ -93,6 +97,7 @@ impl Harness {
                 ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
             }
             "quit" => return true,
+            "ui" => self.ui_commands.push(line[3..].to_string()),
             _ => eprintln!("autoplay: unknown command {line}"),
         }
         ctx.request_repaint();

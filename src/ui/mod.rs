@@ -6,6 +6,7 @@
 //! game skin, scaled to fit their scene or sheet.
 
 pub mod battle;
+pub mod hub;
 pub mod settings;
 pub mod textbox;
 pub mod theme;
@@ -28,6 +29,8 @@ const DOCK_H: f32 = 64.0;
 const OPTIONS: &str = "#options";
 const MENU: &str = "#menu";
 pub const BATTLE_INFO: &str = "#battleinfo";
+/// Opponent cards for a menu group (path in `cards_path`).
+const CARDS: &str = "#cards";
 
 pub struct GameUi {
     pub settings: Settings,
@@ -46,6 +49,7 @@ pub struct GameUi {
     /// A form the program raised while a battle was still replaying; opened afterwards.
     pending_raise: Option<String>,
     own_was_out: bool,
+    cards_path: Vec<String>,
 }
 
 impl GameUi {
@@ -67,9 +71,24 @@ impl GameUi {
             battle: battle::BattleView::default(),
             pending_raise: None,
             own_was_out: false,
+            cards_path: Vec::new(),
         };
         ui.apply_visuals(ctx);
         ui
+    }
+
+    /// Scripted front-end actions for the screenshot harness (`ui sheet Form5`, `ui cards Action1/FightTrainer1`, `ui close`).
+    pub fn debug_command(&mut self, cmd: &str) {
+        let mut it = cmd.split_whitespace();
+        match (it.next(), it.next()) {
+            (Some("sheet"), Some(name)) => self.sheet = Some(name.to_string()),
+            (Some("cards"), Some(path)) => {
+                self.cards_path = path.split('/').map(str::to_string).collect();
+                self.sheet = Some(CARDS.into());
+            }
+            (Some("close"), _) => self.sheet = None,
+            _ => eprintln!("ui: unknown command {cmd}"),
+        }
     }
 
     fn apply_visuals(&self, ctx: &egui::Context) {
@@ -227,6 +246,24 @@ impl GameUi {
                 self.sheet = None;
             }
             self.own_was_out = out;
+        } else if self.scene == "Form4" && hub::active(snap) {
+            let mut req = None;
+            let animate = self.settings.animations;
+            egui::Area::new(Id::new("hub")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+                ui.set_clip_rect(scene_rect);
+                ui.multiply_opacity(scene_fade);
+                ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
+                    req = hub::show(ui, scene_rect, snap, &mut self.renderer, assets, tx, now, animate);
+                });
+            });
+            match req {
+                Some(hub::Request::OpenSheet(s)) => self.sheet = Some(s),
+                Some(hub::Request::OpenCards(path)) => {
+                    self.cards_path = path;
+                    self.sheet = Some(CARDS.into());
+                }
+                None => {}
+            }
         } else if let Some(form) = visible.iter().find(|f| f.var == self.scene) {
             let interactive = !any_dialog || modal_form.as_deref() == Some(form.var.as_str());
             self.host_form(ctx, form, scene_rect.shrink(8.0), LayerId::new(Order::Middle, Id::new(("scene", &form.var))), interactive && (self.sheet.is_none() || wide), assets, tx, scene_fade, true);
@@ -269,6 +306,12 @@ impl GameUi {
                     OPTIONS => "Options".to_string(),
                     MENU => "Menu".to_string(),
                     BATTLE_INFO => "Battle Info".to_string(),
+                    CARDS => visible
+                        .iter()
+                        .find(|f| f.var == "Form4")
+                        .and_then(|f| hub::find_item(f, &self.cards_path))
+                        .map(|(m, _)| strip_amp(&m.caption))
+                        .unwrap_or_default(),
                     v => sheets.iter().find(|f| f.var == v).map(|f| strip_amp(&f.caption)).unwrap_or_default(),
                 };
                 if !wide {
@@ -292,6 +335,15 @@ impl GameUi {
                     MENU => {
                         if let Some(form) = visible.iter().find(|f| f.var == self.scene) {
                             ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| self.menu_body(ui, form, tx, !any_dialog));
+                        }
+                    }
+                    CARDS => {
+                        if let Some(f4) = visible.iter().find(|f| f.var == "Form4") {
+                            let path = self.cards_path.clone();
+                            let fired = ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| hub::cards(ui, f4, &path, tx, !any_dialog)).inner;
+                            if fired {
+                                self.sheet = None;
+                            }
                         }
                     }
                     BATTLE_INFO => {
