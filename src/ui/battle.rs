@@ -153,6 +153,7 @@ impl BattleView {
             Fx::BallThrow => self.dur(settings, 0.9),
             Fx::Caught(_) => self.dur(settings, 1.0),
             Fx::LevelUp => self.dur(settings, 0.8),
+            Fx::Evolve { .. } => 0.0, // shown by the shell's evolution overlay
         }
     }
 
@@ -212,6 +213,7 @@ impl BattleView {
                 self.caught = *ok;
             }
             Fx::LevelUp => self.levelup_at = now,
+            Fx::Evolve { .. } => {}
         }
     }
 
@@ -750,7 +752,7 @@ fn sparkle(p: &egui::Painter, c: Pos2, k: f32, col: Color32) {
     }
 }
 
-fn item_icon(p: &egui::Painter, c: Pos2, name: &str) {
+pub fn item_icon(p: &egui::Painter, c: Pos2, name: &str) {
     if name.contains("BALL") {
         poke_ball(p, c, 9.0, 0.0);
         let band = match name {

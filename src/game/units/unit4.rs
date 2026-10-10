@@ -245,7 +245,9 @@ fn evolve_button_click(w: &mut World) -> R<()> {
             }
         }
         let slot = w.m.evolve_slot();
+        let from = w.m.pc_species(slot); // read only, for the presentation hook below
         w.m.set_pc_species(slot, new_species);
+        w.fx(Fx::Evolve { from, to: new_species }); // presentation hook (no state)
         w.m.set_owned(new_species, true);
         let n = w.m.pkmn_name(new_species).refd(fault::LSTR_ASG)?.to_string();
         w.lv_set_caption(FORM5, "ListView1", slot - 1, &n);

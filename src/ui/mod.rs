@@ -8,6 +8,7 @@
 pub mod battle;
 pub mod hub;
 pub mod naming;
+pub mod screens;
 pub mod settings;
 pub mod slots;
 pub mod starter;
@@ -63,6 +64,9 @@ pub struct GameUi {
     starter: starter::Starter,
     /// Path to give the program's next Save/Open dialog (a save slot).
     pending_file: Option<String>,
+    dex: screens::Dex,
+    /// Evolution being shown: (from, to, start time).
+    evolving: Option<(i32, i32, f64)>,
 }
 
 impl GameUi {
@@ -91,6 +95,8 @@ impl GameUi {
             naming: naming::Naming::default(),
             starter: starter::Starter::default(),
             pending_file: None,
+            dex: screens::Dex::default(),
+            evolving: None,
         };
         ui.apply_visuals(ctx);
         ui
@@ -157,6 +163,10 @@ impl GameUi {
             return;
         }
         self.renderer.skin = Skin::Game;
+        let (evolve, fx): (Vec<Fx>, Vec<Fx>) = fx.into_iter().partition(|f| matches!(f, Fx::Evolve { .. }));
+        if let Some(Fx::Evolve { from, to }) = evolve.last() {
+            self.evolving = Some((*from, *to, ctx.input(|i| i.time)));
+        }
         if battle::active(snap) {
             self.battle.feed(fx);
         } else {
@@ -297,6 +307,13 @@ impl GameUi {
                 Some(title::Request::Prepare(p)) => self.pending_file = Some(p),
                 None => {}
             }
+        } else if self.scene == "Form4" && screens::evolve_choice_active(snap) {
+            egui::Area::new(Id::new("evolve_choice")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+                ui.set_clip_rect(scene_rect);
+                ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
+                    screens::evolve_choice(ui, scene_rect, snap, &mut self.renderer, assets, tx);
+                });
+            });
         } else if self.scene == "Form4" && starter::active(snap) {
             let animate = self.settings.animations;
             egui::Area::new(Id::new("starter")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
@@ -444,7 +461,23 @@ impl GameUi {
                 }
             });
             ctx.move_to_top(layer);
-            if let Some(form) = sheets.iter().find(|f| f.var == name) {
+            let bespoke = matches!(name.as_str(), "Form5" | "Form8" | "Form9");
+            if bespoke {
+                let body = Rect::from_min_max(sheet_rect.min + Vec2::new(14.0, 62.0), sheet_rect.max - Vec2::new(14.0, 12.0));
+                let interactive = !any_dialog && self.sheet.is_some();
+                let blayer = LayerId::new(Order::Foreground, Id::new(("sheetbody", name.as_str())));
+                egui::Area::new(blayer.id).order(Order::Foreground).fixed_pos(body.min).constrain(false).show(ctx, |ui| {
+                    ui.set_clip_rect(body);
+                    ui.set_width(body.width());
+                    ui.set_max_height(body.height());
+                    ui.add_enabled_ui(interactive, |ui| match name.as_str() {
+                        "Form5" => screens::pc(ui, snap, &mut self.renderer, assets, tx),
+                        "Form8" => self.dex.show(ui, snap, &mut self.renderer, assets, tx),
+                        _ => egui::ScrollArea::vertical().id_salt("mart").show(ui, |ui| screens::mart(ui, snap, tx)).inner,
+                    });
+                });
+                ctx.move_to_top(blayer);
+            } else if let Some(form) = sheets.iter().find(|f| f.var == name) {
                 let body = Rect::from_min_max(sheet_rect.min + Vec2::new(12.0, 62.0), sheet_rect.max - Vec2::new(12.0, 12.0));
                 let interactive = !any_dialog || modal_form.as_deref() == Some(form.var.as_str());
                 let flayer = LayerId::new(Order::Foreground, Id::new(("sheetform", &form.var)));
@@ -471,12 +504,71 @@ impl GameUi {
             ctx.request_repaint();
         }
 
+        // Evolution overlay; its "X evolved into Y!" message waits for the animation.
+        let evolving_busy = self.evolution(ctx, screen, snap, assets, now);
+
         // Message boxes wait until the battle has replayed what led to them.
         if let Some((id, Dialog::Message { text, kind, buttons })) = &snap.dialog {
-            if !(in_battle && self.battle.busy()) {
+            if !(in_battle && self.battle.busy()) && !evolving_busy {
                 self.textbox.show(ctx, scene_rect, *id, text, *kind, *buttons, &self.settings, tx);
             }
         }
+    }
+
+    /// The evolution sequence: the old and new sprite alternate faster and faster in white,
+    /// then the new one bursts out. Returns true while the animation is still running.
+    fn evolution(&mut self, ctx: &egui::Context, screen: Rect, snap: &Snapshot, assets: &Assets, now: f64) -> bool {
+        let Some((from, to, at)) = self.evolving else { return false };
+        let dur: f32 = if self.settings.animations { 3.2 } else { 0.0 };
+        let k = ((now - at) as f32 / dur.max(0.001)).min(1.0);
+        let done = dur == 0.0 || k >= 1.0;
+        // Stays up behind its message; leaves once the message is answered.
+        if done && snap.dialog.is_none() && now - at > dur as f64 + 0.3 {
+            self.evolving = None;
+            return false;
+        }
+        let layer = LayerId::new(Order::Foreground, Id::new("evolution"));
+        ctx.move_to_top(layer);
+        let p = ctx.layer_painter(layer);
+        p.rect_filled(screen, 0.0, Color32::from_rgb(0x18, 0x20, 0x38));
+        let c = screen.center() - Vec2::new(0.0, screen.height() * 0.12);
+        // Rays.
+        for i in 0..16 {
+            let a = i as f32 * std::f32::consts::TAU / 16.0 + now as f32 * 0.4;
+            let len = screen.width().max(screen.height());
+            p.add(egui::Shape::convex_polygon(vec![c, c + Vec2::angled(a) * len, c + Vec2::angled(a + 0.12) * len], Color32::from_white_alpha(5 + (10.0 * k) as u8), egui::Stroke::NONE));
+        }
+        // Alternate between the two forms, speeding up; white silhouette until the end.
+        let phase = (k * k * 30.0) as i32;
+        let show_new = done || phase % 2 == 1;
+        let species = if show_new { to } else { from };
+        let px = ((screen.width().min(screen.height()) * 0.5) / 64.0).floor().clamp(2.0, 5.0) * 64.0;
+        if let Some(tex) = self.renderer.texture(ctx, assets, "Form4.PKMNImages", species - 1) {
+            let r = Rect::from_center_size(c, Vec2::splat(px));
+            let tint = if done { Color32::WHITE } else { Color32::from_rgb(0xFF, 0xFF, 0xFF) };
+            p.image(tex.id(), r, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), tint);
+            if !done {
+                // Glow over the sprite (a white silhouette look).
+                p.circle_filled(c, px * 0.42, Color32::from_white_alpha((90.0 + 120.0 * k) as u8));
+            }
+        }
+        if done {
+            let burst = ((now - at) as f32 - dur).clamp(0.0, 1.0);
+            if burst < 1.0 {
+                p.rect_filled(screen, 0.0, Color32::from_white_alpha((255.0 * (1.0 - burst)) as u8));
+            }
+        } else {
+            let name = |s: i32| assets.data.pkmn_name.get(s as usize).cloned().unwrap_or_default();
+            t::text(&p, Pos2::new(screen.center().x, screen.bottom() - screen.height() * 0.22), Align2::CENTER_CENTER, &format!("What? {} is evolving!", name(from)), t::bold(24.0), t::PAPER);
+        }
+        // A tap skips to the end.
+        egui::Area::new(Id::new("evolution_tap")).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+            if ui.allocate_rect(screen, Sense::click()).clicked() && !done {
+                self.evolving = Some((from, to, now - dur as f64));
+            }
+        });
+        ctx.request_repaint();
+        !done
     }
 
     /// Draw `form` scaled to fit `area` on its own transformed layer.

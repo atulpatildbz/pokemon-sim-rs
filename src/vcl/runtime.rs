@@ -111,6 +111,8 @@ pub enum Fx {
     BallThrow,
     Caught(bool),
     LevelUp,
+    /// A POKéMON in the PC evolves (species 1-based), announced right before "X evolved into Y!".
+    Evolve { from: i32, to: i32 },
 }
 
 #[derive(Debug, Clone, Default)]

@@ -325,6 +325,7 @@ fn list_view1_click(w: &mut World) -> R<()> {
                     w.lv_set_caption(FORM5, "ListView1", idx - 1, &n);
                     w.lv_set_image(FORM5, "ListView1", idx - 1, 290);
                     w.m.set_owned(291, true);
+                    w.fx(Fx::Evolve { from: species, to: 291 }); // presentation hook (no state)
                     let m = crate::cat!(&w.m.pkmn_name(species), " evolved into ", &w.m.pkmn_name(w.m.pc_species(idx)), "!")?;
                     w.info(&m)?;
                     handled = true;
@@ -353,6 +354,7 @@ fn list_view1_click(w: &mut World) -> R<()> {
                     w.lv_set_caption(FORM5, "ListView1", idx - 1, &n);
                     w.lv_set_image(FORM5, "ListView1", idx - 1, to - 1);
                     w.m.set_owned(to, true);
+                    w.fx(Fx::Evolve { from: species, to }); // presentation hook (no state)
                     let m = crate::cat!(&w.m.pkmn_name(species), " evolved into ", &w.m.pkmn_name(w.m.pc_species(idx)), "!")?;
                     w.info(&m)?;
                 }

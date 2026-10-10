@@ -1,7 +1,7 @@
 //! Debug harness for the GUI (used to verify rendering without screen-capture permissions):
 //! * `POKEGAME_SHOTS=<dir>` — save screenshots of the app's own frames.
 //! * `POKEGAME_AUTOPLAY=<script>` — replay UI actions. One command per line:
-//!   `wait <ms>` | `click <Form> <Control>` | `dblclick <Form> <Control>` | `menu <Form> <Item>` |
+//!   `wait <ms>` | `click <Form> <Control>` | `dblclick <Form> <Control>` | `change <Form> <Control>` | `menu <Form> <Item>` |
 //!   `select <Form> <Control> <index>` | `text <Form> <Control> <text>` | `answer <modal result>` |
 //!   `file <path>` (answers the next file dialog) | `shot <name>` | `quit` |
 //!   `ui <command>` (front-end only, see `GameUi::debug_command`: `sheet <name>`, `cards <a/b>`)
@@ -73,6 +73,9 @@ impl Harness {
             "wait" => self.next_at = Instant::now() + Duration::from_millis(s(1).parse().unwrap_or(500)),
             "click" => {
                 let _ = tx.send(Input::Event { form: s(1), control: s(2), event: Event::Click });
+            }
+            "change" => {
+                let _ = tx.send(Input::Event { form: s(1), control: s(2), event: Event::Change });
             }
             "dblclick" => {
                 let _ = tx.send(Input::Event { form: s(1), control: s(2), event: Event::DblClick });
