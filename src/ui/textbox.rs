@@ -60,14 +60,14 @@ impl TextBox {
         let font = t::body(20.0);
         let mut job = LayoutJob::default();
         let split = text.char_indices().nth(shown).map_or(text.len(), |(i, _)| i);
-        job.append(&text[..split], 0.0, TextFormat::simple(font.clone(), t::INK));
+        job.append(&text[..split], 0.0, TextFormat::simple(font.clone(), t::pal().ink));
         job.append(&text[split..], 0.0, TextFormat::simple(font.clone(), Color32::TRANSPARENT));
         job.wrap.max_width = width - 48.0;
         let galley = ctx.fonts(|f| f.layout_job(job.clone()));
         let mut shadow_job = job;
         for s in &mut shadow_job.sections {
             if s.format.color != Color32::TRANSPARENT {
-                s.format.color = t::INK_SHADOW;
+                s.format.color = t::pal().ink_shadow;
             }
         }
         let shadow = ctx.fonts(|f| f.layout_job(shadow_job));
@@ -96,15 +96,15 @@ impl TextBox {
             t::frame(&p, rect);
             let mut text_pos = rect.min + Vec2::new(24.0, 20.0);
             if is_error {
-                t::text(&p, text_pos, Align2::LEFT_TOP, kind.title(), t::bold(20.0), t::RED);
+                t::text(&p, text_pos, Align2::LEFT_TOP, kind.title(), t::bold(20.0), t::pal().danger);
                 text_pos.y += header;
             }
-            p.galley(text_pos + Vec2::splat(1.0), shadow, t::INK_SHADOW);
-            p.galley(text_pos, galley, t::INK);
+            p.galley(text_pos + Vec2::splat(1.0), shadow, t::pal().ink_shadow);
+            p.galley(text_pos, galley, t::pal().ink);
             if done && only_ok && !is_error {
                 // Bobbing ▼ prompt.
                 let bob = ((now * 4.0).sin() * 2.0) as f32;
-                t::icon(&p, rect.right_bottom() + Vec2::new(-26.0, -20.0 + bob), 14.0, t::Icon::Down, t::RED);
+                t::icon(&p, rect.right_bottom() + Vec2::new(-26.0, -20.0 + bob), 14.0, t::Icon::Down, t::pal().danger);
             }
             if is_error && done {
                 let b = Rect::from_center_size(Pos2::new(rect.center().x, rect.bottom() - 34.0), Vec2::new(140.0, 44.0));
@@ -132,9 +132,9 @@ impl TextBox {
                         self.cursor = k;
                     }
                     if self.cursor == k {
-                        t::icon(&p, r.left_center() + Vec2::new(14.0, 0.0), 14.0, t::Icon::Right, t::INK);
+                        t::icon(&p, r.left_center() + Vec2::new(14.0, 0.0), 14.0, t::Icon::Right, t::pal().ink);
                     }
-                    t::text(&p, r.left_center() + Vec2::new(30.0, 0.0), Align2::LEFT_CENTER, label, t::bold(20.0), t::INK);
+                    t::text(&p, r.left_center() + Vec2::new(30.0, 0.0), Align2::LEFT_CENTER, label, t::bold(20.0), t::pal().ink);
                     if resp.clicked() || (confirm_key && self.cursor == k) {
                         answer(*result);
                     }

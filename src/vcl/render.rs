@@ -9,8 +9,7 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
 pub const MENU_HEIGHT: f32 = 20.0;
-/// clBtnFace in the game skin: warm paper.
-pub const GAME_FACE: Color32 = Color32::from_rgb(0xF2, 0xF2, 0xEA);
+
 
 /// Windows XP-era system colours for D7's `$FF0000xx` encoding.
 pub fn tcolor(c: TColor) -> Color32 {
@@ -157,9 +156,9 @@ impl Renderer {
 
     fn col(&self, c: TColor) -> Color32 {
         match self.skin {
-            Skin::Game if c == CL_BTN_FACE => GAME_FACE,
-            Skin::Game if c == 0xFF00_000D => crate::ui::theme::FRAME_INNER,
-            Skin::Game if c == 0 || c == 0xFF00_0008 || c == 0xFF00_0012 => crate::ui::theme::INK,
+            Skin::Game if c == CL_BTN_FACE => crate::ui::theme::pal().face,
+            Skin::Game if c == 0xFF00_000D => crate::ui::theme::pal().frame_inner,
+            Skin::Game if c == 0 || c == 0xFF00_0008 || c == 0xFF00_0012 => crate::ui::theme::pal().ink,
             _ => tcolor(c),
         }
     }
@@ -169,7 +168,7 @@ impl Renderer {
             Skin::Classic if sunk => sunken(p, r),
             Skin::Classic => raised(p, r),
             Skin::Game => {
-                p.rect_stroke(r, 4.0, Stroke::new(1.5, crate::ui::theme::FRAME), StrokeKind::Inside);
+                p.rect_stroke(r, 4.0, Stroke::new(1.5, crate::ui::theme::pal().frame), StrokeKind::Inside);
             }
         }
     }
@@ -180,16 +179,16 @@ impl Renderer {
             Skin::Game => {
                 use crate::ui::theme as t;
                 let galley_h = fid.size;
-                p.rect_filled(rect, 0.0, GAME_FACE);
+                p.rect_filled(rect, 0.0, crate::ui::theme::pal().face);
                 let frame = Rect::from_min_max(rect.min + Vec2::new(0.0, galley_h * 0.5), rect.max);
-                p.rect_filled(frame, 6.0, Color32::from_rgb(0xFA, 0xFA, 0xF6));
-                p.rect_stroke(frame, 6.0, Stroke::new(2.0, t::FRAME_INNER), StrokeKind::Inside);
+                p.rect_filled(frame, 6.0, t::pal().tile);
+                p.rect_stroke(frame, 6.0, Stroke::new(2.0, t::pal().frame_inner), StrokeKind::Inside);
                 let cap = strip_amp(caption);
                 if !cap.trim().is_empty() {
-                    let galley = p.layout_no_wrap(cap, fid.clone(), t::PAPER);
+                    let galley = p.layout_no_wrap(cap, fid.clone(), t::ON_ACCENT);
                     let bg = Rect::from_min_size(rect.min + Vec2::new(6.0, -1.0), galley.size() + Vec2::new(10.0, 2.0));
-                    p.rect_filled(bg, 4.0, t::FRAME);
-                    p.galley(bg.min + Vec2::new(5.0, 1.0), galley, t::PAPER);
+                    p.rect_filled(bg, 4.0, t::pal().frame);
+                    p.galley(bg.min + Vec2::new(5.0, 1.0), galley, t::ON_ACCENT);
                 }
             }
         }
@@ -318,8 +317,8 @@ impl Renderer {
         let list = Rect::from_min_size(anchor.left_bottom() + Vec2::new(0.0, 2.0), Vec2::new(anchor.width().max(120.0), row_h * rows + 4.0));
         let painter = ui.painter_at(ui.clip_rect());
         painter.rect_filled(list.translate(Vec2::splat(3.0)), 6.0, Color32::from_black_alpha(50));
-        painter.rect_filled(list, 6.0, t::PAPER);
-        painter.rect_stroke(list, 6.0, Stroke::new(2.0, t::FRAME), StrokeKind::Inside);
+        painter.rect_filled(list, 6.0, t::pal().paper);
+        painter.rect_stroke(list, 6.0, Stroke::new(2.0, t::pal().frame), StrokeKind::Inside);
         let mut picked = None;
         ui.scope_builder(egui::UiBuilder::new().max_rect(list.shrink(2.0)).layer_id(ui.layer_id()), |ui| {
             egui::ScrollArea::vertical().id_salt(("gcl", &form.var, &name)).show(ui, |ui| {
@@ -327,9 +326,9 @@ impl Renderer {
                     let (r, resp) = ui.allocate_exact_size(Vec2::new(list.width() - 6.0, row_h), Sense::click());
                     let sel = c.item_index == k as i32;
                     if sel || resp.hovered() {
-                        ui.painter().rect_filled(r, 4.0, if sel { t::FRAME_INNER } else { Color32::from_rgb(0xE8, 0xF0, 0xF8) });
+                        ui.painter().rect_filled(r, 4.0, if sel { t::pal().frame_inner } else { t::pal().hover });
                     }
-                    ui.painter().text(r.left_center() + Vec2::new(6.0, 0.0), Align2::LEFT_CENTER, item, fid.clone(), t::INK);
+                    ui.painter().text(r.left_center() + Vec2::new(6.0, 0.0), Align2::LEFT_CENTER, item, fid.clone(), t::pal().ink);
                     if resp.clicked() {
                         picked = Some(k as i32);
                     }
@@ -455,13 +454,13 @@ impl Renderer {
                         use crate::ui::theme as t;
                         let resp = ui.interact(r, ui.id().with(("radio", &c.name, k)), Sense::click());
                         if sel || resp.hovered() {
-                            painter.rect_filled(r.shrink2(Vec2::new(0.0, 1.0)), 4.0, if sel { Color32::from_rgb(0xD8, 0xE8, 0xF8) } else { Color32::from_rgb(0xEE, 0xF4, 0xFA) });
+                            painter.rect_filled(r.shrink2(Vec2::new(0.0, 1.0)), 4.0, if sel { t::pal().highlight } else { t::pal().hover });
                         }
                         let dot = Pos2::new(r.left() + r.height() * 0.45, r.center().y);
-                        painter.circle_filled(dot, r.height() * 0.3, t::FRAME);
+                        painter.circle_filled(dot, r.height() * 0.3, t::pal().frame);
                         painter.circle_filled(dot, r.height() * 0.3 - 1.5, Color32::WHITE);
                         if sel {
-                            painter.circle_filled(dot, r.height() * 0.16, t::RED);
+                            painter.circle_filled(dot, r.height() * 0.16, t::pal().danger);
                         }
                         painter.text(Pos2::new(r.left() + r.height() * 0.95, r.center().y), Align2::LEFT_CENTER, strip_amp(item), fid.clone(), fcol);
                         resp
@@ -519,10 +518,10 @@ impl Renderer {
                 use crate::ui::theme as t;
                 let text = if c.item_index >= 0 { c.items.get(c.item_index as usize).cloned().unwrap_or_default() } else { c.text.clone() };
                 let resp = ui.interact(rect, ui.id().with(("gcombo", &c.name)), Sense::click());
-                painter.rect_filled(rect, 4.0, Color32::WHITE);
-                painter.rect_stroke(rect, 4.0, Stroke::new(1.5, t::FRAME), StrokeKind::Inside);
+                painter.rect_filled(rect, 4.0, t::pal().tile);
+                painter.rect_stroke(rect, 4.0, Stroke::new(1.5, t::pal().frame), StrokeKind::Inside);
                 painter.text(rect.left_center() + Vec2::new(4.0, 0.0), Align2::LEFT_CENTER, text, fid.clone(), fcol);
-                t::icon(&painter, rect.right_center() - Vec2::new(rect.height() * 0.4, 0.0), rect.height() * 0.45, t::Icon::Down, t::FRAME);
+                t::icon(&painter, rect.right_center() - Vec2::new(rect.height() * 0.4, 0.0), rect.height() * 0.45, t::Icon::Down, t::pal().frame);
                 if enabled && resp.clicked() {
                     let is_open = self.open_combo.as_ref().is_some_and(|(f, n, _)| *f == form.var && *n == c.name);
                     self.open_combo = if is_open { None } else { Some((form.var.clone(), c.name.clone(), rect)) };

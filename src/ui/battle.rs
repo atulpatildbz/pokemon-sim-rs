@@ -417,7 +417,7 @@ impl BattleView {
                 let (col, row) = (k % 3, k / 3);
                 let r = Rect::from_min_size(controls.min + Vec2::new(col as f32 * (third + gap), row as f32 * (row_h + gap)), Vec2::new(third, row_h));
                 let resp = t::button(ui, r, "", t::ButtonKind::Plain, can_act && *enabled);
-                let ink = if *enabled { t::INK } else { t::GREY };
+                let ink = if *enabled { t::pal().ink } else { t::pal().grey };
                 let p = ui.painter();
                 item_icon(p, r.left_center() + Vec2::new(18.0, -2.0), name);
                 t::text(p, r.left_center() + Vec2::new(34.0, -10.0), Align2::LEFT_CENTER, name, t::bold(15.0), ink);
@@ -492,9 +492,9 @@ impl BattleView {
         let (w, h) = (field.width(), field.height());
         // Backdrop: pale sky to meadow.
         let mut mesh = egui::Mesh::default();
-        let top = Color32::from_rgb(0xF8, 0xF4, 0xE0);
-        let mid = Color32::from_rgb(0xE0, 0xF0, 0xC8);
-        let low = Color32::from_rgb(0xB8, 0xE0, 0x98);
+        let top = t::pal().field_top;
+        let mid = t::pal().field_mid;
+        let low = t::pal().field_low;
         let y1 = field.top() + h * 0.5;
         for (y, c) in [(field.top(), top), (y1, mid), (field.bottom(), low)] {
             mesh.colored_vertex(Pos2::new(field.left(), y), c);
@@ -504,15 +504,15 @@ impl BattleView {
             mesh.add_triangle(k, k + 1, k + 2);
             mesh.add_triangle(k + 1, k + 2, k + 3);
         }
-        p.rect_filled(field.expand(3.0), CornerRadius::same(14), t::FRAME);
+        p.rect_filled(field.expand(3.0), CornerRadius::same(14), t::pal().frame);
         let clip = p.with_clip_rect(field);
         clip.add(Shape::mesh(mesh));
         // Grass tufts.
         for k in 0..14 {
             let x = field.left() + (k as f32 * 0.137 % 1.0) * w;
             let y = field.top() + h * (0.55 + (k as f32 * 0.311 % 1.0) * 0.4);
-            clip.line_segment([Pos2::new(x, y), Pos2::new(x - 3.0, y - 7.0)], Stroke::new(2.0, Color32::from_rgb(0x88, 0xC0, 0x70)));
-            clip.line_segment([Pos2::new(x + 4.0, y), Pos2::new(x + 6.0, y - 8.0)], Stroke::new(2.0, Color32::from_rgb(0x88, 0xC0, 0x70)));
+            clip.line_segment([Pos2::new(x, y), Pos2::new(x - 3.0, y - 7.0)], Stroke::new(2.0, t::pal().grass));
+            clip.line_segment([Pos2::new(x + 4.0, y), Pos2::new(x + 6.0, y - 8.0)], Stroke::new(2.0, t::pal().grass));
         }
         // Whole-number sprite scales (nearest-neighbour stays crisp).
         let scale = ((w * 0.4).min(h * 0.36) / 64.0).floor().clamp(2.0, 5.0);
@@ -520,8 +520,8 @@ impl BattleView {
         let enemy_base = Pos2::new(field.left() + w * 0.72, field.top() + h * 0.46);
         let own_base = Pos2::new(field.left() + w * 0.27, field.bottom() - h * 0.06);
         let platform = |c: Pos2, rx: f32| {
-            clip.add(Shape::ellipse_filled(c, Vec2::new(rx, rx * 0.22), Color32::from_rgb(0xA8, 0xC8, 0x80)));
-            clip.add(Shape::ellipse_filled(c - Vec2::new(0.0, 2.0), Vec2::new(rx * 0.92, rx * 0.18), Color32::from_rgb(0xC8, 0xE0, 0xA0)));
+            clip.add(Shape::ellipse_filled(c, Vec2::new(rx, rx * 0.22), t::pal().platform));
+            clip.add(Shape::ellipse_filled(c - Vec2::new(0.0, 2.0), Vec2::new(rx * 0.92, rx * 0.18), t::pal().platform_light));
         };
         platform(enemy_base, 64.0 * scale * 0.75);
         platform(own_base, 64.0 * own_scale * 0.7);
@@ -685,6 +685,9 @@ fn split_move(item: &str) -> (String, String) {
 }
 
 pub fn type_color(ty: &str) -> Color32 {
+    if t::pal().mono {
+        return t::pal().primary;
+    }
     let rgb = match ty.to_ascii_lowercase().as_str() {
         "normal" => 0xA8A878,
         "fire" => 0xF08030,
@@ -711,11 +714,11 @@ pub fn type_color(ty: &str) -> Color32 {
 fn move_button(ui: &mut egui::Ui, r: Rect, name: &str, ty: &str, enabled: bool) -> egui::Response {
     let resp = t::button(ui, r, "", t::ButtonKind::Plain, enabled);
     let p = ui.painter();
-    let col = if enabled { type_color(ty) } else { t::GREY };
+    let col = if enabled { type_color(ty) } else { t::pal().grey };
     let press = if resp.is_pointer_button_down_on() { t::PX * 2.0 } else { 0.0 };
     let face = Rect::from_min_max(r.min + Vec2::new(t::PX, t::PX + press), Pos2::new(r.max.x - t::PX, r.max.y - t::PX * 3.0 + press));
     p.rect_filled(Rect::from_min_size(face.min, Vec2::new(8.0, face.height())), CornerRadius { nw: 4, sw: 4, ne: 0, se: 0 }, col);
-    let ink = if enabled { t::INK } else { t::GREY };
+    let ink = if enabled { t::pal().ink } else { t::pal().grey };
     t::text(p, face.left_center() + Vec2::new(18.0, -8.0), Align2::LEFT_CENTER, name, t::bold(19.0), ink);
     if !ty.is_empty() {
         let galley = p.layout_no_wrap(ty.to_uppercase(), t::bold(12.0), Color32::WHITE);
@@ -731,25 +734,25 @@ fn hp_box(p: &egui::Painter, r: Rect, name: &str, lv: &str, hp: f32, max: i32, o
     p.rect_filled(r.translate(Vec2::new(3.0, 4.0)), 10.0, Color32::from_black_alpha(40));
     t::frame(p, r);
     let inner = r.shrink2(Vec2::new(14.0, 8.0));
-    t::text(p, inner.left_top() + Vec2::new(0.0, 1.0), Align2::LEFT_TOP, name, t::bold(19.0), t::INK);
-    t::text(p, inner.right_top() + Vec2::new(0.0, 1.0), Align2::RIGHT_TOP, &format!("Lv{lv}"), t::bold(17.0), t::INK);
+    t::text(p, inner.left_top() + Vec2::new(0.0, 1.0), Align2::LEFT_TOP, name, t::bold(19.0), t::pal().ink);
+    t::text(p, inner.right_top() + Vec2::new(0.0, 1.0), Align2::RIGHT_TOP, &format!("Lv{lv}"), t::bold(17.0), t::pal().ink);
     if owned {
-        poke_ball(p, inner.left_top() + Vec2::new(p.layout_no_wrap(name.to_string(), t::bold(19.0), t::INK).size().x + 12.0, 10.0), 6.0, 0.0);
+        poke_ball(p, inner.left_top() + Vec2::new(p.layout_no_wrap(name.to_string(), t::bold(19.0), t::pal().ink).size().x + 12.0, 10.0), 6.0, 0.0);
     }
     let bar_y = inner.top() + 26.0;
     let label = Rect::from_min_size(Pos2::new(inner.left(), bar_y), Vec2::new(30.0, 12.0));
-    p.rect_filled(label, 3.0, Color32::from_rgb(0xF8, 0xA0, 0x38));
+    p.rect_filled(label, 3.0, if t::pal().mono { t::pal().primary } else { Color32::from_rgb(0xF8, 0xA0, 0x38) });
     p.text(label.center(), Align2::CENTER_CENTER, "HP", t::bold(11.0), Color32::WHITE);
     let bar = Rect::from_min_max(Pos2::new(label.right() + 4.0, bar_y), Pos2::new(inner.right(), bar_y + 12.0));
     t::hp_bar(p, bar, hp / max.max(1) as f32);
     if own {
-        t::text(p, Pos2::new(inner.right(), bar_y + 16.0), Align2::RIGHT_TOP, &format!("{}/{}", hp.round() as i32, max), t::bold(17.0), t::INK);
+        t::text(p, Pos2::new(inner.right(), bar_y + 16.0), Align2::RIGHT_TOP, &format!("{}/{}", hp.round() as i32, max), t::bold(17.0), t::pal().ink);
     }
 }
 
 fn poke_ball(p: &egui::Painter, c: Pos2, r: f32, tilt: f32) {
     let rot = egui::emath::Rot2::from_angle(tilt);
-    p.circle_filled(c, r + 1.5, t::FRAME);
+    p.circle_filled(c, r + 1.5, t::pal().frame);
     // Top half red, bottom white.
     let n = 16;
     let half = |from: f32, col: Color32| {
@@ -760,10 +763,10 @@ fn poke_ball(p: &egui::Painter, c: Pos2, r: f32, tilt: f32) {
         }
         p.add(Shape::convex_polygon(pts, col, Stroke::NONE));
     };
-    half(PI, t::RED);
+    half(PI, t::pal().danger);
     half(0.0, Color32::WHITE);
-    p.line_segment([c + rot * Vec2::new(-r, 0.0), c + rot * Vec2::new(r, 0.0)], Stroke::new(1.5, t::FRAME));
-    p.circle_filled(c, r * 0.32, t::FRAME);
+    p.line_segment([c + rot * Vec2::new(-r, 0.0), c + rot * Vec2::new(r, 0.0)], Stroke::new(1.5, t::pal().frame));
+    p.circle_filled(c, r * 0.32, t::pal().frame);
     p.circle_filled(c, r * 0.2, Color32::WHITE);
 }
 
@@ -784,7 +787,7 @@ pub fn item_icon(p: &egui::Painter, c: Pos2, name: &str) {
     if name.contains("BALL") {
         poke_ball(p, c, 9.0, 0.0);
         let band = match name {
-            n if n.starts_with("GREAT") => Some(t::BLUE),
+            n if n.starts_with("GREAT") => Some(t::pal().primary),
             n if n.starts_with("ULTRA") => Some(Color32::from_rgb(0xF8, 0xD0, 0x30)),
             n if n.starts_with("MASTER") => Some(Color32::from_rgb(0xA0, 0x48, 0xC8)),
             _ => None,
@@ -795,9 +798,9 @@ pub fn item_icon(p: &egui::Painter, c: Pos2, name: &str) {
     } else {
         // Spray bottle.
         let body = Rect::from_center_size(c + Vec2::new(0.0, 2.0), Vec2::new(12.0, 14.0));
-        p.rect_filled(body.expand(1.5), 3.0, t::FRAME);
+        p.rect_filled(body.expand(1.5), 3.0, t::pal().frame);
         p.rect_filled(body, 2.0, if name.starts_with("SUPER") { Color32::from_rgb(0xF0, 0x70, 0x40) } else { Color32::from_rgb(0xA0, 0x60, 0xD0) });
-        p.rect_filled(Rect::from_center_size(c - Vec2::new(0.0, 8.0), Vec2::new(6.0, 5.0)), 1.0, t::FRAME);
+        p.rect_filled(Rect::from_center_size(c - Vec2::new(0.0, 8.0), Vec2::new(6.0, 5.0)), 1.0, t::pal().frame);
     }
 }
 
@@ -813,8 +816,8 @@ fn draw_typed(p: &egui::Painter, r: Rect, text: &str, shown: usize, ctx: &egui::
         j.wrap.max_width = r.width();
         ctx.fonts(|f| f.layout_job(j))
     };
-    p.galley(r.min + Vec2::splat(1.0), job(t::INK_SHADOW), t::INK_SHADOW);
-    p.galley(r.min, job(t::INK), t::INK);
+    p.galley(r.min + Vec2::splat(1.0), job(t::pal().ink_shadow), t::pal().ink_shadow);
+    p.galley(r.min, job(t::pal().ink), t::pal().ink);
 }
 
 fn ease_out(x: f32) -> f32 {

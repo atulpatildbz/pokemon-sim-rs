@@ -33,7 +33,7 @@ impl Naming {
         // Header and the name with blinking cursor.
         let head = Rect::from_min_size(col.min + Vec2::new(0.0, 10.0), Vec2::new(col.width(), 150.0));
         t::frame(&p, head);
-        t::text(&p, head.center_top() + Vec2::new(0.0, 26.0), Align2::CENTER_CENTER, "YOUR NAME?", t::title(15.0), t::INK);
+        t::text(&p, head.center_top() + Vec2::new(0.0, 26.0), Align2::CENTER_CENTER, "YOUR NAME?", t::title(15.0), t::pal().ink);
         let slots_w = (col.width() - 60.0).min(15.0 * 26.0);
         let cell = slots_w / max as f32;
         let x0 = head.center().x - slots_w / 2.0;
@@ -41,17 +41,17 @@ impl Naming {
         let chars: Vec<char> = self.name.chars().collect();
         for k in 0..max {
             let cx = x0 + (k as f32 + 0.5) * cell;
-            p.line_segment([Pos2::new(cx - cell * 0.38, y + 16.0), Pos2::new(cx + cell * 0.38, y + 16.0)], egui::Stroke::new(2.0, if k == chars.len() { t::RED } else { t::GREY }));
+            p.line_segment([Pos2::new(cx - cell * 0.38, y + 16.0), Pos2::new(cx + cell * 0.38, y + 16.0)], egui::Stroke::new(2.0, if k == chars.len() { t::pal().danger } else { t::pal().grey }));
             if let Some(c) = chars.get(k) {
-                t::text(&p, Pos2::new(cx, y), Align2::CENTER_CENTER, &c.to_string(), t::bold((cell * 1.1).min(28.0)), t::INK);
+                t::text(&p, Pos2::new(cx, y), Align2::CENTER_CENTER, &c.to_string(), t::bold((cell * 1.1).min(28.0)), t::pal().ink);
             }
         }
         if chars.is_empty() {
-            t::text(&p, Pos2::new(head.center().x, y - 36.0), Align2::CENTER_CENTER, "(empty = Ash)", t::body(15.0), t::GREY);
+            t::text(&p, Pos2::new(head.center().x, y - 36.0), Align2::CENTER_CENTER, "(empty = Ash)", t::body(15.0), t::pal().grey);
         }
         if (now * 2.0).fract() < 0.5 && chars.len() < max {
             let cx = x0 + (chars.len() as f32 + 0.5) * cell;
-            t::icon(&p, Pos2::new(cx, y - 24.0), 10.0, t::Icon::Down, t::RED);
+            t::icon(&p, Pos2::new(cx, y - 24.0), 10.0, t::Icon::Down, t::pal().danger);
         }
 
         // Letter grid.
@@ -67,7 +67,7 @@ impl Naming {
                 let label = if ch == ' ' { "␣".to_string() } else { ch.to_string() };
                 let resp = t::button(ui, r, if ch == ' ' { "" } else { &label }, t::ButtonKind::Plain, true);
                 if ch == ' ' {
-                    p.line_segment([r.left_bottom() + Vec2::new(kw * 0.25, -16.0), r.right_bottom() + Vec2::new(-kw * 0.25, -16.0)], egui::Stroke::new(2.0, t::INK));
+                    p.line_segment([r.left_bottom() + Vec2::new(kw * 0.25, -16.0), r.right_bottom() + Vec2::new(-kw * 0.25, -16.0)], egui::Stroke::new(2.0, t::pal().ink));
                 }
                 if resp.clicked() {
                     typed = Some(ch);

@@ -90,6 +90,9 @@ every action at safe points (main window up, no battle or tournament, no dialog)
 original save format and serializer, written atomically. A mid-battle exit therefore loses only
 that battle. `tests/golden.rs` checks that auto-saving never changes the game.
 
+**Colour schemes.** Options › Color scheme: Sky (default), Twilight (dark), Pocket (four-shade
+handheld green), Lava, Forest, Sakura and Ocean. Defined in `src/ui/theme.rs` (`PALETTES`).
+
 `POKEGAME_WINDOW=390x844` opens a phone-shaped window for trying the portrait layout.
 
 ## Known differences

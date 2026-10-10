@@ -93,9 +93,9 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
     let card = Rect::from_min_size(area.min, Vec2::new(area.width(), 118.0));
     let p = &ui.painter().clone();
     p.rect_filled(card.translate(Vec2::new(3.0, 5.0)), 14.0, Color32::from_black_alpha(45));
-    p.rect_filled(card, 14.0, t::FRAME);
+    p.rect_filled(card, 14.0, t::pal().frame);
     let inner = card.shrink(t::PX * 1.5);
-    p.rect_filled(inner, 12.0, rgb(0xF8, 0xE8, 0xB0));
+    p.rect_filled(inner, 12.0, t::pal().card);
     // Diagonal stripes for a card-stock feel.
     let stripes = p.with_clip_rect(inner);
     let mut x = inner.left() - inner.height();
@@ -104,8 +104,8 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
         x += 26.0;
     }
     let name = label_of(f5, "PlayerNameLbl");
-    t::text(p, inner.left_top() + Vec2::new(16.0, 12.0), Align2::LEFT_TOP, "TRAINER CARD", t::title(11.0), rgb(0xA0, 0x70, 0x20));
-    t::text(p, inner.left_top() + Vec2::new(16.0, 32.0), Align2::LEFT_TOP, if name.is_empty() { "-" } else { &name }, t::bold(30.0), t::INK);
+    t::text(p, inner.left_top() + Vec2::new(16.0, 12.0), Align2::LEFT_TOP, "TRAINER CARD", t::title(11.0), t::pal().card_ink);
+    t::text(p, inner.left_top() + Vec2::new(16.0, 32.0), Align2::LEFT_TOP, if name.is_empty() { "-" } else { &name }, t::bold(30.0), t::pal().ink);
     let stats = [
         ("MONEY", format!("¥{}", label_of(f5, "MoneyLbl"))),
         ("WINS", format!("{}/{}", label_of(f5, "WinsLbl"), label_of(f5, "FightsLbl"))),
@@ -115,8 +115,8 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
     let col_w = (inner.width() - 32.0) / 4.0;
     for (k, (k_label, v)) in stats.iter().enumerate() {
         let pos = inner.left_bottom() + Vec2::new(16.0 + k as f32 * col_w, -38.0);
-        t::text(p, pos, Align2::LEFT_TOP, k_label, t::bold(13.0), rgb(0xA0, 0x70, 0x20));
-        t::text(p, pos + Vec2::new(0.0, 14.0), Align2::LEFT_TOP, v, t::bold(19.0), t::INK);
+        t::text(p, pos, Align2::LEFT_TOP, k_label, t::bold(13.0), t::pal().card_ink);
+        t::text(p, pos + Vec2::new(0.0, 14.0), Align2::LEFT_TOP, v, t::bold(19.0), t::pal().ink);
     }
     // PC button on the card.
     let pc = Rect::from_min_size(inner.right_top() + Vec2::new(-112.0, 12.0), Vec2::new(100.0, 42.0));
@@ -151,7 +151,7 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
         if find_item(f4, &["Action1", item]).is_some_and(|(m, _)| m.checked) {
             let r = Rect::from_min_size(Pos2::new(area.left(), top), Vec2::new(area.width(), 52.0));
             p.rect_filled(r, 10.0, color);
-            t::text(p, r.left_center() + Vec2::new(14.0, 0.0), Align2::LEFT_CENTER, text, t::bold(16.0), t::PAPER);
+            t::text(p, r.left_center() + Vec2::new(14.0, 0.0), Align2::LEFT_CENTER, text, t::bold(16.0), t::ON_ACCENT);
             let b = Rect::from_min_size(r.right_top() + Vec2::new(-200.0, 6.0), Vec2::new(90.0, 40.0));
             if t::button(ui, b, "OPEN PC", t::ButtonKind::Plain, free).clicked() {
                 req = Some(Request::OpenSheet("Form5".into()));
@@ -179,15 +179,16 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
         let press = if resp.is_pointer_button_down_on() { t::PX * 2.0 } else { 0.0 };
         let face = Rect::from_min_max(r.min + Vec2::new(t::PX, t::PX + press), Pos2::new(r.max.x - t::PX, r.max.y - t::PX * 3.0 + press));
         let badge = Rect::from_center_size(face.left_center() + Vec2::new(face.height() * 0.5 + 2.0, 0.0), Vec2::splat(face.height() * 0.72));
-        p.rect_filled(badge, CornerRadius::same(10), if enabled { tile.color } else { t::GREY });
+        let badge_col = if t::pal().mono { t::pal().primary } else { tile.color };
+        p.rect_filled(badge, CornerRadius::same(10), if enabled { badge_col } else { t::pal().grey });
         glyph(p, badge.center(), badge.width() * 0.3, tile.glyph, Color32::WHITE);
-        let ink = if enabled { t::INK } else { t::GREY };
+        let ink = if enabled { t::pal().ink } else { t::pal().grey };
         let size = if tw < 190.0 { 15.0 } else { 19.0 };
         t::text(p, Pos2::new(badge.right() + 10.0, face.center().y), Align2::LEFT_CENTER, tile.label, t::bold(size), ink);
         if item.checked {
             t::icon(p, face.right_top() + Vec2::new(-14.0, 14.0), 14.0, t::Icon::Check, tile.color);
         } else if !item.enabled {
-            t::icon(p, face.right_top() + Vec2::new(-14.0, 14.0), 12.0, t::Icon::Lock, t::GREY);
+            t::icon(p, face.right_top() + Vec2::new(-14.0, 14.0), 12.0, t::Icon::Lock, t::pal().grey);
         }
         if resp.clicked() {
             if item.children.is_empty() {
@@ -233,7 +234,7 @@ pub fn cards(ui: &mut egui::Ui, form: &Form, path: &[String], tx: &Sender<Input>
         for (trail, leaves) in &sections {
             let title = if trail.is_empty() { strip_amp(&root.caption) } else { trail.join(" · ") };
             let (r, _) = ui.allocate_exact_size(Vec2::new(width, 30.0), Sense::hover());
-            t::text(ui.painter(), r.left_bottom() + Vec2::new(2.0, -6.0), Align2::LEFT_BOTTOM, &title, t::bold(18.0), t::INK);
+            t::text(ui.painter(), r.left_bottom() + Vec2::new(2.0, -6.0), Align2::LEFT_BOTTOM, &title, t::bold(18.0), t::pal().ink);
             for row in leaves.chunks(cols) {
                 let (r, _) = ui.allocate_exact_size(Vec2::new(width, 62.0), Sense::hover());
                 for (k, (m, ok)) in row.iter().enumerate() {
@@ -244,12 +245,12 @@ pub fn cards(ui: &mut egui::Ui, form: &Form, path: &[String], tx: &Sender<Input>
                     let name = strip_amp(&m.caption);
                     let face_c = br.left_center() + Vec2::new(26.0, -2.0);
                     let hue = name.bytes().fold(7u32, |h, b| h.wrapping_mul(31).wrapping_add(b as u32));
-                    let col = if enabled { Color32::from_rgb(120 + (hue % 100) as u8, 90 + ((hue / 100) % 100) as u8, 110 + ((hue / 10000) % 110) as u8) } else { t::GREY };
-                    p.circle_filled(face_c, 15.0, t::FRAME);
+                    let col = if enabled { Color32::from_rgb(120 + (hue % 100) as u8, 90 + ((hue / 100) % 100) as u8, 110 + ((hue / 10000) % 110) as u8) } else { t::pal().grey };
+                    p.circle_filled(face_c, 15.0, t::pal().frame);
                     p.circle_filled(face_c, 13.0, col);
                     let initial: String = name.chars().filter(|c| c.is_alphanumeric()).take(1).collect();
                     p.text(face_c, Align2::CENTER_CENTER, initial, t::bold(16.0), Color32::WHITE);
-                    let ink = if enabled { t::INK } else { t::GREY };
+                    let ink = if enabled { t::pal().ink } else { t::pal().grey };
                     // Shrink long names to fit the card.
                     let room = br.right() - (face_c.x + 24.0) - 10.0;
                     let mut size = 17.0;
@@ -258,7 +259,7 @@ pub fn cards(ui: &mut egui::Ui, form: &Form, path: &[String], tx: &Sender<Input>
                     }
                     t::text(p, Pos2::new(face_c.x + 24.0, face_c.y), Align2::LEFT_CENTER, &name, t::bold(size), ink);
                     if !m.enabled {
-                        t::icon(p, br.right_top() + Vec2::new(-14.0, 14.0), 12.0, t::Icon::Lock, t::GREY);
+                        t::icon(p, br.right_top() + Vec2::new(-14.0, 14.0), 12.0, t::Icon::Lock, t::pal().grey);
                     }
                     if resp.clicked() && m.on_click.is_some() {
                         let _ = tx.send(Input::Menu { form: form.var.clone(), item: m.name.clone() });

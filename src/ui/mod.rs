@@ -21,7 +21,7 @@ pub mod title;
 
 use crate::assets::Assets;
 use crate::vcl::model::{Form, MenuItem};
-use crate::vcl::render::{strip_amp, Renderer, Skin, GAME_FACE, MENU_HEIGHT};
+use crate::vcl::render::{strip_amp, Renderer, Skin, MENU_HEIGHT};
 use crate::vcl::runtime::{Dialog, Fx, Input, Snapshot};
 use egui::emath::TSTransform;
 use egui::{Align2, Color32, Id, LayerId, Order, Pos2, Rect, Sense, Vec2};
@@ -77,6 +77,8 @@ pub struct GameUi {
     evolving: Option<(i32, i32, f64)>,
     /// When Back was pressed at the top level (a second press within 2 s quits).
     back_at: f64,
+    /// Re-apply egui visuals on the next frame (scheme changed outside the Options sheet).
+    restyle: bool,
 }
 
 impl GameUi {
@@ -110,6 +112,7 @@ impl GameUi {
             corner: screens::GameCorner::default(),
             evolving: None,
             back_at: f64::NEG_INFINITY,
+            restyle: false,
         };
         ui.apply_visuals(ctx);
         ui
@@ -165,11 +168,17 @@ impl GameUi {
             (Some("close"), _) => self.sheet = None,
             (Some("start"), _) => self.title.start(),
             (Some("continue"), _) => self.title.debug_continue = true,
+            (Some("scheme"), Some(key)) => {
+                self.settings.scheme = key.to_string();
+                t::set_scheme(key);
+                self.restyle = true;
+            }
             _ => eprintln!("ui: unknown command {cmd}"),
         }
     }
 
     fn apply_visuals(&self, ctx: &egui::Context) {
+        t::set_scheme(&self.settings.scheme);
         if self.settings.classic {
             crate::vcl::render::classic_visuals(ctx);
         } else {
@@ -199,6 +208,9 @@ impl GameUi {
         if ctx.input(|i| i.key_pressed(egui::Key::F2)) {
             let on = !self.settings.classic;
             self.set_classic(ctx, on);
+        }
+        if std::mem::take(&mut self.restyle) {
+            self.apply_visuals(ctx);
         }
         if self.settings.classic {
             self.renderer.skin = Skin::Classic;
@@ -453,8 +465,8 @@ impl GameUi {
                 let p = &p;
                 let r = Rect::from_min_size(sheet_rect.min, sheet_rect.size() + Vec2::new(0.0, 20.0));
                 p.rect_filled(r.translate(Vec2::new(0.0, -4.0)), 18.0, Color32::from_black_alpha(40));
-                p.rect_filled(r, 18.0, t::FRAME);
-                p.rect_filled(r.shrink(t::PX * 1.5), 16.0, GAME_FACE);
+                p.rect_filled(r, 18.0, t::pal().frame);
+                p.rect_filled(r.shrink(t::PX * 1.5), 16.0, crate::ui::theme::pal().face);
                 // Header: grab handle, title, close.
                 let title = match name.as_str() {
                     OPTIONS => "Options".to_string(),
@@ -471,16 +483,16 @@ impl GameUi {
                     v => sheets.iter().find(|f| f.var == v).map(|f| sheet_title(&f.caption)).unwrap_or_default(),
                 };
                 if !wide {
-                    p.rect_filled(Rect::from_center_size(Pos2::new(r.center().x, r.top() + 10.0), Vec2::new(48.0, 5.0)), 3.0, t::GREY);
+                    p.rect_filled(Rect::from_center_size(Pos2::new(r.center().x, r.top() + 10.0), Vec2::new(48.0, 5.0)), 3.0, t::pal().grey);
                 }
-                t::text(p, r.left_top() + Vec2::new(20.0, 34.0), Align2::LEFT_CENTER, &title, t::bold(22.0), t::INK);
+                t::text(p, r.left_top() + Vec2::new(20.0, 34.0), Align2::LEFT_CENTER, &title, t::bold(22.0), t::pal().ink);
                 let can_close = modal_form.as_deref() != Some(name.as_str());
                 if can_close {
                     let b = Rect::from_center_size(r.right_top() + Vec2::new(-34.0, 34.0), Vec2::splat(40.0));
                     if t::button(ui, b, "", t::ButtonKind::Plain, true).clicked() {
                         self.sheet = None;
                     }
-                    t::icon(ui.painter(), b.center() - Vec2::new(0.0, 2.0), 18.0, t::Icon::Close, t::INK);
+                    t::icon(ui.painter(), b.center() - Vec2::new(0.0, 2.0), 18.0, t::Icon::Close, t::pal().ink);
                 }
                 let body = Rect::from_min_max(sheet_rect.min + Vec2::new(12.0, 62.0), sheet_rect.max - Vec2::new(12.0, 12.0));
                 if bespoke {
@@ -499,7 +511,9 @@ impl GameUi {
                 }
                 match name.as_str() {
                     OPTIONS => {
-                        ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| self.options_body(ui, ctx, snap, tx));
+                        ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| {
+                            egui::ScrollArea::vertical().id_salt("options").show(ui, |ui| self.options_body(ui, ctx, snap, tx));
+                        });
                     }
                     MENU => {
                         if let Some(form) = visible.iter().find(|f| f.var == self.scene) {
@@ -550,8 +564,8 @@ impl GameUi {
             let a = (1.0 - ((since_back - 1.5) / 0.5).max(0.0)).clamp(0.0, 1.0);
             let r = Rect::from_center_size(Pos2::new(screen.center().x, screen.bottom() - DOCK_H - 40.0), Vec2::new(250.0, 40.0));
             let p = ctx.layer_painter(LayerId::new(Order::Tooltip, Id::new("back_hint")));
-            p.rect_filled(r, 20.0, t::FRAME.gamma_multiply(0.9 * a));
-            p.text(r.center(), Align2::CENTER_CENTER, "Press BACK again to quit", t::bold(17.0), t::PAPER.gamma_multiply(a));
+            p.rect_filled(r, 20.0, t::pal().frame.gamma_multiply(0.9 * a));
+            p.text(r.center(), Align2::CENTER_CENTER, "Press BACK again to quit", t::bold(17.0), t::ON_ACCENT.gamma_multiply(a));
             ctx.request_repaint();
         }
 
@@ -567,9 +581,9 @@ impl GameUi {
             let a = (1.0 - ((age - 1.2) / 0.6).max(0.0)).clamp(0.0, 1.0);
             let r = Rect::from_min_size(Pos2::new(scene_rect.right() - 118.0, scene_rect.top() + 10.0), Vec2::new(106.0, 34.0));
             let p = ctx.layer_painter(LayerId::new(Order::Tooltip, Id::new("saved")));
-            p.rect_filled(r, 17.0, t::FRAME.gamma_multiply(0.85 * a));
+            p.rect_filled(r, 17.0, t::pal().frame.gamma_multiply(0.85 * a));
             t::icon(&p, r.left_center() + Vec2::new(18.0, 0.0), 14.0, t::Icon::Check, Color32::from_rgb(0x88, 0xE0, 0x98).gamma_multiply(a));
-            p.text(r.left_center() + Vec2::new(32.0, 0.0), Align2::LEFT_CENTER, "Saved", t::bold(18.0), t::PAPER.gamma_multiply(a));
+            p.text(r.left_center() + Vec2::new(32.0, 0.0), Align2::LEFT_CENTER, "Saved", t::bold(18.0), t::ON_ACCENT.gamma_multiply(a));
             ctx.request_repaint();
         }
 
@@ -681,7 +695,7 @@ impl GameUi {
             }
         } else {
             let name = |s: i32| assets.data.pkmn_name.get(s as usize).cloned().unwrap_or_default();
-            t::text(&p, Pos2::new(screen.center().x, screen.bottom() - screen.height() * 0.22), Align2::CENTER_CENTER, &format!("What? {} is evolving!", name(from)), t::bold(24.0), t::PAPER);
+            t::text(&p, Pos2::new(screen.center().x, screen.bottom() - screen.height() * 0.22), Align2::CENTER_CENTER, &format!("What? {} is evolving!", name(from)), t::bold(24.0), t::ON_ACCENT);
         }
         // A tap skips to the end.
         egui::Area::new(Id::new("evolution")).movable(false).order(Order::Tooltip).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
@@ -714,8 +728,8 @@ impl GameUi {
                 let r = local.expand(10.0 / scale);
                 let p = ui.painter();
                 p.rect_filled(r.translate(Vec2::new(0.0, 5.0 / scale)), 14.0 / scale, Color32::from_black_alpha(50));
-                p.rect_filled(r, 14.0 / scale, t::FRAME);
-                p.rect_filled(r.shrink(3.0 / scale), 12.0 / scale, GAME_FACE);
+                p.rect_filled(r, 14.0 / scale, t::pal().frame);
+                p.rect_filled(r.shrink(3.0 / scale), 12.0 / scale, crate::ui::theme::pal().face);
             }
             self.renderer.form_body(ui, form, assets, tx, interactive, false);
         });
@@ -788,11 +802,11 @@ impl GameUi {
             let r = ui.allocate_exact_size(Vec2::new(width, 44.0), Sense::hover()).0;
             let back = Rect::from_min_size(r.min, Vec2::new(96.0, 40.0));
             let clicked = t::button(ui, back, "  Back", t::ButtonKind::Plain, true).clicked();
-            t::icon(ui.painter(), back.left_center() + Vec2::new(18.0, -2.0), 12.0, t::Icon::Left, t::INK);
+            t::icon(ui.painter(), back.left_center() + Vec2::new(18.0, -2.0), 12.0, t::Icon::Left, t::pal().ink);
             if clicked {
                 self.menu_path.pop();
             }
-            t::text(ui.painter(), r.left_center() + Vec2::new(108.0, -2.0), Align2::LEFT_CENTER, &crumbs.join(" / "), t::bold(18.0), t::INK);
+            t::text(ui.painter(), r.left_center() + Vec2::new(108.0, -2.0), Align2::LEFT_CENTER, &crumbs.join(" / "), t::bold(18.0), t::pal().ink);
             ui.add_space(6.0);
         }
         let cols = if width > 520.0 { 3 } else { 2 };
@@ -809,13 +823,13 @@ impl GameUi {
                     let resp = t::button(ui, br, &label, t::ButtonKind::Plain, enabled);
                     let p = ui.painter();
                     if !m.children.is_empty() {
-                        t::icon(p, br.right_center() + Vec2::new(-14.0, -2.0), 10.0, t::Icon::Right, if enabled { t::INK } else { t::GREY });
+                        t::icon(p, br.right_center() + Vec2::new(-14.0, -2.0), 10.0, t::Icon::Right, if enabled { t::pal().ink } else { t::pal().grey });
                     }
                     if m.checked {
-                        t::icon(p, br.left_center() + Vec2::new(16.0, -2.0), 14.0, t::Icon::Check, t::BLUE);
+                        t::icon(p, br.left_center() + Vec2::new(16.0, -2.0), 14.0, t::Icon::Check, t::pal().primary);
                     }
                     if !m.enabled {
-                        t::icon(p, br.right_top() + Vec2::new(-14.0, 14.0), 12.0, t::Icon::Lock, t::GREY);
+                        t::icon(p, br.right_top() + Vec2::new(-14.0, 14.0), 12.0, t::Icon::Lock, t::pal().grey);
                     }
                     if resp.clicked() {
                         if !m.children.is_empty() {
@@ -836,7 +850,7 @@ impl GameUi {
         let row = |ui: &mut egui::Ui, label: &str| {
             ui.add_space(8.0);
             let (r, _) = ui.allocate_exact_size(Vec2::new(width, 26.0), Sense::hover());
-            t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, label, t::bold(20.0), t::INK);
+            t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, label, t::bold(20.0), t::pal().ink);
         };
         row(ui, "Text speed");
         let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
@@ -861,6 +875,23 @@ impl GameUi {
         if t::button(ui, Rect::from_min_size(r.min + Vec2::new(half + 6.0, 0.0), Vec2::new(half, 46.0)), classic_label, t::ButtonKind::Plain, true).clicked() {
             let on = !self.settings.classic;
             self.set_classic(ctx, on);
+        }
+        row(ui, "Color scheme");
+        let cols = if width > 460.0 { 4 } else { 3 };
+        let gap = 8.0;
+        let sw = (width - gap * (cols as f32 - 1.0)) / cols as f32;
+        let rows = t::PALETTES.len().div_ceil(cols);
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, rows as f32 * (sw * 0.78 + gap)), Sense::hover());
+        for (k, pal) in t::PALETTES.iter().enumerate() {
+            let cell = Rect::from_min_size(r.min + Vec2::new((k % cols) as f32 * (sw + gap), (k / cols) as f32 * (sw * 0.78 + gap)), Vec2::new(sw, sw * 0.78));
+            let resp = ui.interact(cell, Id::new(("scheme", pal.key)), Sense::click());
+            let chosen = self.settings.scheme == pal.key || (k == 0 && !t::PALETTES.iter().any(|p| p.key == self.settings.scheme));
+            scheme_swatch(ui.painter(), cell, pal, chosen, resp.hovered());
+            if resp.clicked() && !chosen {
+                self.settings.scheme = pal.key.to_string();
+                self.settings.save();
+                self.apply_visuals(ctx);
+            }
         }
         row(ui, "Sound");
         let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
@@ -889,8 +920,49 @@ impl GameUi {
         }
         ui.add_space(14.0);
         let (r, _) = ui.allocate_exact_size(Vec2::new(width, 22.0), Sense::hover());
-        t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, "F2 switches between game and classic look.", t::body(16.0), t::GREY);
+        t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, "F2 switches between game and classic look.", t::body(16.0), t::pal().grey);
         let _ = MENU_HEIGHT;
+    }
+}
+
+/// A miniature of a colour scheme: sky backdrop, a text box, a primary and a danger button.
+fn scheme_swatch(p: &egui::Painter, r: Rect, pal: &t::Palette, chosen: bool, hovered: bool) {
+    let r = if hovered && !chosen { r.shrink(1.0) } else { r };
+    p.rect_filled(r.translate(Vec2::new(2.0, 3.0)), 10.0, Color32::from_black_alpha(40));
+    p.rect_filled(r, 10.0, if chosen { pal.frame_inner } else { pal.frame });
+    let inner = r.shrink(if chosen { 4.0 } else { 2.0 });
+    // Sky gradient with stripes.
+    let mut mesh = egui::Mesh::default();
+    for (y, c) in [(inner.top(), pal.sky_top), (inner.bottom(), pal.sky_bottom)] {
+        mesh.colored_vertex(Pos2::new(inner.left(), y), c);
+        mesh.colored_vertex(Pos2::new(inner.right(), y), c);
+    }
+    mesh.add_triangle(0, 1, 2);
+    mesh.add_triangle(1, 2, 3);
+    let clip = p.with_clip_rect(inner);
+    clip.add(egui::Shape::mesh(mesh));
+    let mut x = inner.left() - inner.height();
+    while x < inner.right() {
+        clip.line_segment([Pos2::new(x, inner.bottom()), Pos2::new(x + inner.height(), inner.top())], egui::Stroke::new(6.0, Color32::from_white_alpha(pal.stripe.saturating_mul(2))));
+        x += 16.0;
+    }
+    // A little text box with the scheme's name, and two buttons.
+    let tb = Rect::from_min_size(inner.min + Vec2::new(6.0, 6.0), Vec2::new(inner.width() - 12.0, inner.height() * 0.42));
+    p.rect_filled(tb, 5.0, pal.frame);
+    p.rect_filled(tb.shrink(1.5), 4.0, pal.frame_inner);
+    p.rect_filled(tb.shrink(3.0), 3.0, pal.paper);
+    p.text(tb.center() + Vec2::new(0.5, 0.5), Align2::CENTER_CENTER, pal.name, t::bold(15.0), pal.ink_shadow);
+    p.text(tb.center(), Align2::CENTER_CENTER, pal.name, t::bold(15.0), pal.ink);
+    let bw = (inner.width() - 18.0) / 2.0;
+    for (k, col) in [pal.primary, pal.danger].into_iter().enumerate() {
+        let b = Rect::from_min_size(Pos2::new(inner.left() + 6.0 + k as f32 * (bw + 6.0), inner.bottom() - 6.0 - inner.height() * 0.24), Vec2::new(bw, inner.height() * 0.24));
+        p.rect_filled(b.translate(Vec2::new(0.0, 2.0)), 4.0, pal.frame);
+        p.rect_filled(b, 4.0, col);
+    }
+    if chosen {
+        let c = r.right_top() + Vec2::new(-12.0, 12.0);
+        p.circle_filled(c, 9.0, pal.frame);
+        t::icon(p, c, 11.0, t::Icon::Check, t::ON_ACCENT);
     }
 }
 
@@ -900,25 +972,25 @@ fn battle_info_body(ui: &mut egui::Ui, snap: &Snapshot) {
     let f4 = snap.forms.iter().find(|f| f.var == "Form4");
     if let Some(f4) = f4.filter(|f| f.c("GroupBox1").visible) {
         let (r, _) = ui.allocate_exact_size(Vec2::new(width, 28.0), Sense::hover());
-        t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, &strip_amp(&f4.c("GroupBox2").caption), t::bold(19.0), t::INK);
+        t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, &strip_amp(&f4.c("GroupBox2").caption), t::bold(19.0), t::pal().ink);
         let half = (width - 8.0) / 2.0;
         let (r, _) = ui.allocate_exact_size(Vec2::new(width, 2.0 * 30.0 + 8.0), Sense::hover());
         for (k, l) in ["Label4", "Label5", "Label6", "Label7"].iter().enumerate() {
             let cell = Rect::from_min_size(r.min + Vec2::new((k % 2) as f32 * (half + 8.0), (k / 2) as f32 * 34.0), Vec2::new(half, 30.0));
-            ui.painter().rect_filled(cell, 6.0, Color32::WHITE);
-            ui.painter().rect_stroke(cell, 6.0, egui::Stroke::new(1.5, t::FRAME_INNER), egui::StrokeKind::Inside);
-            t::text(ui.painter(), cell.left_center() + Vec2::new(10.0, 0.0), Align2::LEFT_CENTER, &strip_amp(&f4.c(l).caption), t::body(18.0), t::INK);
+            ui.painter().rect_filled(cell, 6.0, t::pal().tile);
+            ui.painter().rect_stroke(cell, 6.0, egui::Stroke::new(1.5, t::pal().frame_inner), egui::StrokeKind::Inside);
+            t::text(ui.painter(), cell.left_center() + Vec2::new(10.0, 0.0), Align2::LEFT_CENTER, &strip_amp(&f4.c(l).caption), t::body(18.0), t::pal().ink);
         }
         ui.add_space(10.0);
     }
     let (r, _) = ui.allocate_exact_size(Vec2::new(width, 28.0), Sense::hover());
-    t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, "Battle log", t::bold(19.0), t::INK);
+    t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, "Battle log", t::bold(19.0), t::pal().ink);
     let lines: Vec<String> = snap.forms.iter().find(|f| f.var == "Form7").map(|f| f.c("Memo1").items.clone()).unwrap_or_default();
-    egui::Frame::new().fill(Color32::WHITE).corner_radius(8.0).stroke(egui::Stroke::new(1.5, t::FRAME_INNER)).inner_margin(10.0).show(ui, |ui| {
+    egui::Frame::new().fill(t::pal().tile).corner_radius(8.0).stroke(egui::Stroke::new(1.5, t::pal().frame_inner)).inner_margin(10.0).show(ui, |ui| {
         ui.set_width(width - 20.0);
         egui::ScrollArea::vertical().stick_to_bottom(true).id_salt("battle_log").show(ui, |ui| {
             for l in &lines {
-                ui.label(egui::RichText::new(l).font(t::body(18.0)).color(t::INK));
+                ui.label(egui::RichText::new(l).font(t::body(18.0)).color(t::pal().ink));
             }
         });
     });

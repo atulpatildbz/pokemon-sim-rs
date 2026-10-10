@@ -78,17 +78,17 @@ impl Title {
         let logo_y = area.top() + area.height() * 0.16;
         let bob = if animate { ((now * 1.5).sin() * 4.0) as f32 } else { 0.0 };
         let big = (col_w / 9.0).clamp(26.0, 52.0);
-        for (dx, dy, c) in [(4.0, 4.0, t::FRAME), (0.0, 0.0, Color32::from_rgb(0xF8, 0xD0, 0x30))] {
+        for (dx, dy, c) in [(4.0, 4.0, t::pal().frame), (0.0, 0.0, Color32::from_rgb(0xF8, 0xD0, 0x30))] {
             p.text(Pos2::new(cx + dx, logo_y + bob + dy), Align2::CENTER_CENTER, "POKéMON", t::title(big), c);
         }
         // Outline effect for the yellow word.
-        p.text(Pos2::new(cx, logo_y + bob + big * 0.95), Align2::CENTER_CENTER, "SIMULATOR", t::title(big * 0.42), t::PAPER);
-        p.text(Pos2::new(cx, logo_y + bob + big * 1.55), Align2::CENTER_CENTER, "V4.5", t::title(big * 0.3), t::FRAME);
+        p.text(Pos2::new(cx, logo_y + bob + big * 0.95), Align2::CENTER_CENTER, "SIMULATOR", t::title(big * 0.42), t::ON_ACCENT);
+        p.text(Pos2::new(cx, logo_y + bob + big * 1.55), Align2::CENTER_CENTER, "V4.5", t::title(big * 0.3), t::pal().frame);
 
         if !self.started {
             let blink = !animate || (now * 1.6).fract() < 0.65;
             if blink {
-                t::text(&p, Pos2::new(cx, area.center().y + 40.0), Align2::CENTER_CENTER, "TAP TO START", t::title(16.0), t::PAPER);
+                t::text(&p, Pos2::new(cx, area.center().y + 40.0), Align2::CENTER_CENTER, "TAP TO START", t::title(16.0), t::ON_ACCENT);
             }
             let tapped = ui.interact(area, ui.id().with("title_tap"), Sense::click()).clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Space));
             if tapped && free {
@@ -146,7 +146,7 @@ impl Title {
         if let Some((msg, at)) = &self.message {
             if now - at < 4.0 {
                 let (r, _) = ui.allocate_exact_size(Vec2::new(width, 26.0), Sense::hover());
-                t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, msg, t::bold(16.0), t::RED);
+                t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, msg, t::bold(16.0), t::pal().danger);
             }
         }
         for slot in 0..slots::COUNT {
@@ -155,7 +155,7 @@ impl Title {
             let p = ui.painter().clone();
             t::frame(&p, card);
             let inner = card.shrink2(Vec2::new(18.0, 12.0));
-            t::text(&p, inner.left_top(), Align2::LEFT_TOP, &format!("SLOT {}", slot + 1), t::title(11.0), t::GREY);
+            t::text(&p, inner.left_top(), Align2::LEFT_TOP, &format!("SLOT {}", slot + 1), t::title(11.0), t::pal().grey);
             let sum = &sums[slot];
             match sum {
                 Some(m) => {
@@ -164,11 +164,11 @@ impl Title {
                             p.image(tex.id(), Rect::from_min_size(inner.left_top() + Vec2::new(-6.0, 14.0), Vec2::splat(64.0)), Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
                         }
                     }
-                    t::text(&p, inner.left_top() + Vec2::new(66.0, 18.0), Align2::LEFT_TOP, &m.name, t::bold(24.0), t::INK);
-                    t::text(&p, inner.left_top() + Vec2::new(66.0, 48.0), Align2::LEFT_TOP, &format!("Badges {}  ·  ¥{}  ·  Dex {}  ·  PC {}", m.badges, m.money, m.dex, m.pc), t::body(16.0), t::INK);
+                    t::text(&p, inner.left_top() + Vec2::new(66.0, 18.0), Align2::LEFT_TOP, &m.name, t::bold(24.0), t::pal().ink);
+                    t::text(&p, inner.left_top() + Vec2::new(66.0, 48.0), Align2::LEFT_TOP, &format!("Badges {}  ·  ¥{}  ·  Dex {}  ·  PC {}", m.badges, m.money, m.dex, m.pc), t::body(16.0), t::pal().ink);
                 }
                 None => {
-                    t::text(&p, inner.left_top() + Vec2::new(0.0, 34.0), Align2::LEFT_CENTER, "— empty —", t::bold(20.0), t::GREY);
+                    t::text(&p, inner.left_top() + Vec2::new(0.0, 34.0), Align2::LEFT_CENTER, "— empty —", t::bold(20.0), t::pal().grey);
                 }
             }
             // Actions on the right.

@@ -35,7 +35,7 @@ impl Starter {
         let free = snap.dialog.is_none();
         let p = ui.painter().clone();
         let col = Rect::from_center_size(area.center(), Vec2::new(area.width().min(620.0), area.height())).shrink(10.0);
-        t::text(&p, col.center_top() + Vec2::new(0.0, 34.0), Align2::CENTER_CENTER, "CHOOSE YOUR", t::title(14.0), t::PAPER);
+        t::text(&p, col.center_top() + Vec2::new(0.0, 34.0), Align2::CENTER_CENTER, "CHOOSE YOUR", t::title(14.0), t::ON_ACCENT);
         t::text(&p, col.center_top() + Vec2::new(0.0, 62.0), Align2::CENTER_CENTER, "FIRST POKéMON!", t::title(18.0), Color32::from_rgb(0xF8, 0xD0, 0x30));
 
         // Carousel with swipe.
@@ -87,10 +87,10 @@ impl Starter {
                     }
                     v
                 });
-            let main = types.first().map_or(t::BLUE, |ty| type_color(ty));
+            let main = types.first().map_or(t::pal().primary, |ty| type_color(ty));
             p.rect_filled(r.translate(Vec2::new(4.0, 6.0)), 18.0, Color32::from_black_alpha(50));
-            p.rect_filled(r, 18.0, t::FRAME);
-            p.rect_filled(r.shrink(3.0), 16.0, t::lerp_color(main, Color32::WHITE, 0.55));
+            p.rect_filled(r, 18.0, t::pal().frame);
+            p.rect_filled(r.shrink(3.0), 16.0, t::lerp_color(main, t::pal().tile, 0.55));
             // Sun-burst behind the sprite.
             let sc = Pos2::new(r.center().x, r.top() + r.height() * 0.42);
             for i in 0..12 {
@@ -106,7 +106,7 @@ impl Starter {
                 let sr = Rect::from_center_size(sc - Vec2::new(0.0, hop), Vec2::splat(px));
                 p.image(tex.id(), sr, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
             }
-            t::text(&p, Pos2::new(r.center().x, r.bottom() - r.height() * 0.24), Align2::CENTER_CENTER, &it.caption, t::bold(28.0 * scale), t::INK);
+            t::text(&p, Pos2::new(r.center().x, r.bottom() - r.height() * 0.24), Align2::CENTER_CENTER, &it.caption, t::bold(28.0 * scale), t::pal().ink);
             // Type pills.
             let pills: Vec<_> = types.iter().map(|ty| p.layout_no_wrap(ty.to_uppercase(), t::bold(14.0), Color32::WHITE)).collect();
             let total: f32 = pills.iter().map(|g| g.size().x + 18.0).sum::<f32>() - 8.0;
@@ -122,7 +122,7 @@ impl Starter {
         let arrow = |ui: &mut egui::Ui, dx: f32, icon: t::Icon, enabled: bool| {
             let r = Rect::from_center_size(Pos2::new(strip.center().x + dx, strip.center().y), Vec2::splat(48.0));
             let resp = t::button(ui, r, "", t::ButtonKind::Plain, enabled);
-            t::icon(ui.painter(), r.center() - Vec2::new(0.0, 2.0), 16.0, icon, if enabled { t::INK } else { t::GREY });
+            t::icon(ui.painter(), r.center() - Vec2::new(0.0, 2.0), 16.0, icon, if enabled { t::pal().ink } else { t::pal().grey });
             resp.clicked()
         };
         let edge = (col.width() / 2.0 - 26.0).min(card_w / 2.0 + 40.0);
@@ -134,7 +134,7 @@ impl Starter {
         }
         for k in 0..n {
             let c = Pos2::new(strip.center().x + (k as f32 - (n as f32 - 1.0) / 2.0) * 18.0, strip.bottom() + 18.0);
-            p.circle_filled(c, if k == self.index { 6.0 } else { 4.0 }, if k == self.index { t::PAPER } else { Color32::from_white_alpha(120) });
+            p.circle_filled(c, if k == self.index { 6.0 } else { 4.0 }, if k == self.index { t::ON_ACCENT } else { Color32::from_white_alpha(120) });
         }
         let b = Rect::from_center_size(Pos2::new(col.center().x, strip.bottom() + 70.0), Vec2::new(card_w.min(320.0), 60.0));
         let name = &lv.list_items[self.index].caption;
