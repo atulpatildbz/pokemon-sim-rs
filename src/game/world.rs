@@ -102,6 +102,12 @@ pub struct World {
     pub headless_answers: Vec<DialogAnswer>,
     /// Presentation effects not yet published (only collected when a front-end is attached).
     fx_queue: Vec<Fx>,
+    /// Auto-save at safe points (front-end feature; off in tests unless enabled).
+    pub autosave: bool,
+    /// Bytes of the last auto-save, to skip unchanged writes.
+    last_autosave: Vec<u8>,
+    /// Number of auto-saves written (published so the UI can show a hint).
+    pub autosaves: u64,
 }
 
 impl World {
@@ -130,6 +136,9 @@ impl World {
             headless_log: Vec::new(),
             headless_answers: Vec::new(),
             fx_queue: Vec::new(),
+            autosave: false,
+            last_autosave: Vec::new(),
+            autosaves: 0,
         }
     }
 
@@ -538,6 +547,7 @@ impl World {
             s.generation += 1;
             s.media = self.media.clone();
             s.fx.append(&mut self.fx_queue);
+            s.autosaves = self.autosaves;
             drop(s);
             (b.repaint)();
         }
@@ -573,7 +583,37 @@ impl World {
             return Ok((Some(id) == waiting).then_some(answer));
         }
         self.handle_input(input);
+        self.autosave_if_safe();
         Ok(None)
+    }
+
+    /// Auto-save (front-end addition; the original saves only on quit). Runs only at points
+    /// where the original's own save would capture a consistent game: main window up, starter
+    /// chosen, no battle/tournament, no dialog open. Uses the original serializer, which only
+    /// reads state; the file is replaced atomically.
+    pub fn autosave_if_safe(&mut self) {
+        if !self.autosave || !self.dialogs.is_empty() || self.terminated {
+            return;
+        }
+        let safe = self.forms[FORM4].visible
+            && !self.ctl_visible(FORM4, "ListView1")
+            && !self.m.in_wild_battle()
+            && !self.m.in_trainer_battle()
+            && !self.m.in_tournament();
+        let file = self.cr(FORM4, "SaveDialog1").file_name.clone();
+        if !safe || file.is_empty() {
+            return;
+        }
+        let bytes = super::units::unit4::save_contents(self);
+        if bytes == self.last_autosave {
+            return;
+        }
+        let tmp = format!("{file}.tmp");
+        if std::fs::write(&tmp, &bytes).and_then(|_| std::fs::rename(&tmp, &file)).is_ok() {
+            self.last_autosave = bytes;
+            self.autosaves += 1;
+            self.publish(true);
+        }
     }
 
     /// Deliver one UI input to the program, exactly as the message loop does (also used by

@@ -50,6 +50,8 @@ pub struct GameUi {
     pending_raise: Option<String>,
     own_was_out: bool,
     cards_path: Vec<String>,
+    autosaves: u64,
+    saved_at: f64,
 }
 
 impl GameUi {
@@ -72,6 +74,8 @@ impl GameUi {
             pending_raise: None,
             own_was_out: false,
             cards_path: Vec::new(),
+            autosaves: 0,
+            saved_at: f64::NEG_INFINITY,
         };
         ui.apply_visuals(ctx);
         ui
@@ -312,7 +316,7 @@ impl GameUi {
                         .and_then(|f| hub::find_item(f, &self.cards_path))
                         .map(|(m, _)| strip_amp(&m.caption))
                         .unwrap_or_default(),
-                    v => sheets.iter().find(|f| f.var == v).map(|f| strip_amp(&f.caption)).unwrap_or_default(),
+                    v => sheets.iter().find(|f| f.var == v).map(|f| sheet_title(&f.caption)).unwrap_or_default(),
                 };
                 if !wide {
                     p.rect_filled(Rect::from_center_size(Pos2::new(r.center().x, r.top() + 10.0), Vec2::new(48.0, 5.0)), 3.0, t::GREY);
@@ -360,6 +364,24 @@ impl GameUi {
                 self.host_form(ctx, form, body, flayer, interactive && self.sheet.is_some(), assets, tx, 1.0, false);
                 ctx.move_to_top(flayer);
             }
+        }
+
+        // "Saved" hint after each auto-save.
+        if snap.autosaves != self.autosaves {
+            if self.autosaves != 0 || snap.autosaves > 1 {
+                self.saved_at = now;
+            }
+            self.autosaves = snap.autosaves;
+        }
+        let age = (now - self.saved_at) as f32;
+        if age < 1.8 {
+            let a = (1.0 - ((age - 1.2) / 0.6).max(0.0)).clamp(0.0, 1.0);
+            let r = Rect::from_min_size(Pos2::new(scene_rect.right() - 118.0, scene_rect.top() + 10.0), Vec2::new(106.0, 34.0));
+            let p = ctx.layer_painter(LayerId::new(Order::Tooltip, Id::new("saved")));
+            p.rect_filled(r, 17.0, t::FRAME.gamma_multiply(0.85 * a));
+            t::icon(&p, r.left_center() + Vec2::new(18.0, 0.0), 14.0, t::Icon::Check, Color32::from_rgb(0x88, 0xE0, 0x98).gamma_multiply(a));
+            p.text(r.left_center() + Vec2::new(32.0, 0.0), Align2::LEFT_CENTER, "Saved", t::bold(18.0), t::PAPER.gamma_multiply(a));
+            ctx.request_repaint();
         }
 
         // Message boxes wait until the battle has replayed what led to them.
@@ -595,6 +617,20 @@ fn battle_info_body(ui: &mut egui::Ui, snap: &Snapshot) {
 
 fn ease_out(x: f32) -> f32 {
     1.0 - (1.0 - x).powi(3)
+}
+
+/// Sheet header: a long caption ("Welcome to POKéMON Mart! Click an item…") keeps its first sentence.
+fn sheet_title(c: &str) -> String {
+    let c = strip_amp(c);
+    let first = match c.find(['!', '.']) {
+        Some(i) if c.chars().count() > 24 => c[..=i].to_string(),
+        _ => c.clone(),
+    };
+    if first.chars().count() > 26 {
+        first.chars().take(25).collect::<String>() + "…"
+    } else {
+        first
+    }
 }
 
 /// Window captions are long ("POKéMON Simulator V4.5 - Statistics"); keep the meaningful part.

@@ -205,6 +205,7 @@ fn main() {
                 .spawn(move || {
                     let mut w = World::new(assets_t, &data, Some(bridge));
                     w.params = params;
+                    w.autosave = true;
                     w.run();
                 })
                 .expect("spawn logic thread");

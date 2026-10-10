@@ -135,6 +135,16 @@ impl TextWriter {
         std::fs::write(path, b"").map_err(|e| io_err(&e))?;
         Ok(TextWriter { path: path.to_string(), buf: Vec::new() })
     }
+    /// A writer that only collects bytes (no file).
+    pub fn memory() -> TextWriter {
+        TextWriter { path: String::new(), buf: Vec::new() }
+    }
+    pub fn write_bytes(&mut self, b: &[u8]) {
+        self.buf.extend_from_slice(b);
+    }
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.buf
+    }
     pub fn write_str(&mut self, s: &str) {
         self.buf.extend(s.chars().map(|c| if (c as u32) < 256 { c as u8 } else { b'?' }));
     }

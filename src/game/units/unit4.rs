@@ -124,6 +124,16 @@ fn form_close(w: &mut World) -> R<()> {
 fn save(w: &mut World) -> R<()> {
     let file = w.cr(FORM4, "SaveDialog1").file_name.clone();
     let mut f = TextWriter::create(&file)?;
+    f.write_bytes(&save_contents(w));
+    f.close()?;
+    w.c(FORM4, "SaveDialog1").file_name.clear(); // yes, the original clears it
+    Ok(())
+}
+
+/// The save file's bytes, exactly as TForm4.Save writes them. Reads state only (`&World`), so
+/// the front-end's auto-save can call it at any safe point without affecting the game.
+pub fn save_contents(w: &World) -> Vec<u8> {
+    let mut f = TextWriter::memory();
     f.writeln("VERSION2SAVEFILEIDENTIFIER");
     f.writeln(&w.m.player_name());
     for b in [w.m.beat_lance(), w.m.beat_ash(), w.m.beat_me(), w.m.beat_rby_champion(), w.m.beat_rusa_champion()] {
@@ -153,9 +163,7 @@ fn save(w: &mut World) -> R<()> {
         f.writeln(&w.m.pc_level(i).to_string());
         f.writeln(&w.m.pc_exp(i).to_string());
     }
-    f.close()?;
-    w.c(FORM4, "SaveDialog1").file_name.clear(); // yes, the original clears it
-    Ok(())
+    f.into_bytes()
 }
 
 /// @00484a04 — starter selection.

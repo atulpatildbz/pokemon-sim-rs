@@ -173,7 +173,7 @@ fn replace_all(hay: &[u8], needle: &[u8], with: &[u8]) -> Vec<u8> {
 
 /// Hash of the whole observable program state. The save path is machine-specific, so it is
 /// normalised out.
-fn fingerprint(w: &World, save: &str) -> u64 {
+fn fingerprint(w: &World, save: &str, with_file: bool) -> u64 {
     let mut buf = Vec::new();
     w.m.digest_into(&mut buf);
     buf.extend_from_slice(&w.rng.seed.to_le_bytes());
@@ -183,10 +183,16 @@ fn fingerprint(w: &World, save: &str) -> u64 {
     }
     buf.extend_from_slice(format!("{:?}|{:?}|{}", w.headless_log, w.media, w.terminated).as_bytes());
     let buf = replace_all(&buf, save.as_bytes(), b"<SAVE>");
+    // The file name also shows in the window title: map it back to the name the goldens used.
+    let name = Path::new(save).file_name().unwrap().to_string_lossy().into_owned();
+    let canonical = name.splitn(4, '_').take(3).collect::<Vec<_>>().join("_") + ".pgs";
+    let buf = replace_all(&buf, name.as_bytes(), canonical.as_bytes());
     let mut h = 0xcbf29ce484222325;
     fnv(&mut h, &buf);
-    if let Ok(bytes) = std::fs::read(save) {
-        fnv(&mut h, &bytes);
+    if with_file {
+        if let Ok(bytes) = std::fs::read(save) {
+            fnv(&mut h, &bytes);
+        }
     }
     h
 }
@@ -195,11 +201,21 @@ fn run_trace(dir: &Path, seed: u64, steps: usize) -> Vec<String> {
     run_trace_with(dir, seed, steps, |_| {})
 }
 
-/// `each_step` runs before every step (test-only state pokes, e.g. topping up money).
 fn run_trace_with(dir: &Path, seed: u64, steps: usize, each_step: impl Fn(&mut World)) -> Vec<String> {
-    let save = std::env::temp_dir().join(format!("pg_golden_{seed}.pgs")).to_string_lossy().into_owned();
+    run_trace_opts(dir, seed, steps, each_step, false, true).0
+}
+
+/// `each_step` runs before every step (test-only state pokes, e.g. topping up money).
+/// `autosave`: run the front-end's auto-save after every step, as the message loop does.
+/// Returns the trace and the number of auto-saves written.
+fn run_trace_opts(dir: &Path, seed: u64, steps: usize, each_step: impl Fn(&mut World), autosave: bool, with_file: bool) -> (Vec<String>, u64) {
+    // Unique per run: tests run in parallel. The fingerprint normalises the path away.
+    static RUN: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let run = RUN.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let save = std::env::temp_dir().join(format!("pg_golden_{seed}_{}_{run}.pgs", std::process::id())).to_string_lossy().into_owned();
     let _ = std::fs::remove_file(&save);
     let mut w = world(dir);
+    w.autosave = autosave;
     let mut rng = Lcg(seed);
     w.c(OK_RIGHT_DLG, "Edit1").text = "Red".into();
     let mut lines = Vec::new();
@@ -239,11 +255,12 @@ fn run_trace_with(dir: &Path, seed: u64, steps: usize, each_step: impl Fn(&mut W
         }
         for i in &act.inputs {
             w.handle_input(i.clone());
+            w.autosave_if_safe();
         }
-        lines.push(format!("{step} {} {:016x}", act.desc, fingerprint(&w, &save)));
+        lines.push(format!("{step} {} {:016x}", act.desc, fingerprint(&w, &save, with_file)));
     }
     let _ = std::fs::remove_file(&save);
-    lines
+    (lines, w.autosaves)
 }
 
 const SEEDS: [u64; 5] = [1, 2, 3, 4, 5];
@@ -284,4 +301,16 @@ fn golden_traces() {
 fn golden_trace_is_deterministic() {
     let Some(dir) = game_dir() else { return };
     assert_eq!(run_trace(&dir, 99, 400), run_trace(&dir, 99, 400));
+}
+
+/// Auto-save writes the save file at safe points but must never change the game itself.
+#[test]
+fn autosave_does_not_change_play() {
+    let Some(dir) = game_dir() else { return };
+    for seed in [1, 5] {
+        let (plain, _) = run_trace_opts(&dir, seed, 600, |_| {}, false, false);
+        let (saved, n) = run_trace_opts(&dir, seed, 600, |_| {}, true, false);
+        assert!(n > 0, "seed {seed}: no auto-save happened");
+        assert_eq!(plain, saved, "seed {seed}: auto-save changed the game");
+    }
 }

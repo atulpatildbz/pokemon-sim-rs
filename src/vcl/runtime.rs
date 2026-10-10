@@ -117,6 +117,8 @@ pub enum Fx {
 pub struct Snapshot {
     /// Effects published since the front-end last drained them.
     pub fx: Vec<Fx>,
+    /// Auto-saves written so far.
+    pub autosaves: u64,
     pub forms: Vec<Form>,
     pub dialog: Option<(u64, Dialog)>,
     /// Form variables, back to front.
