@@ -114,7 +114,9 @@ impl Audio {
                 Ok(d) => sink.append(d.fade_in(fade)),
                 Err(_) => sink.append(Song::new(cue).fade_in(fade)),
             },
-            None => sink.append(Song::new(cue).fade_in(if cue == Cue::Victory { Duration::ZERO } else { fade })),
+            // The jingle starts at full volume (rodio's fade_in asserts a non-zero duration).
+            None if cue == Cue::Victory => sink.append(Song::new(cue)),
+            None => sink.append(Song::new(cue).fade_in(fade)),
         }
         sink.set_volume(0.7);
         self.bgm = Some((cue, sink));

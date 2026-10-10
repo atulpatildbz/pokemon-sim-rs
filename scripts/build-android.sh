@@ -26,9 +26,9 @@ cp target/aarch64-linux-android/release/libpokegame.so "$OUT/stage/lib/arm64-v8a
 # PG_RELEASE=1: sign with the release key (~/.android/pokemon-sim-release.{jks,pass}, kept out
 # of the repo; Android only accepts updates signed with the same key). Otherwise the debug key.
 if [[ "${PG_RELEASE:-}" == 1 ]]; then
+    PASS="$(tr -d '\n' < "$HOME/.android/pokemon-sim-release.pass")"
     "$BT/apksigner" sign --ks "$HOME/.android/pokemon-sim-release.jks" --ks-key-alias pokemon-sim \
-        --ks-pass "file:$HOME/.android/pokemon-sim-release.pass" --key-pass "file:$HOME/.android/pokemon-sim-release.pass" \
-        --out "$APK" "$OUT/aligned.apk"
+        --ks-pass "pass:$PASS" --key-pass "pass:$PASS" --out "$APK" "$OUT/aligned.apk"
 else
     "$BT/apksigner" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android --key-pass pass:android \
         --ks-key-alias androiddebugkey --out "$APK" "$OUT/aligned.apk"
