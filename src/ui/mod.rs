@@ -1,0 +1,482 @@
+//! The game front-end: scenes, slide-up sheets, the Pokémon text box and the Options screen,
+//! layered over the faithful VCL model. Nothing here changes game state except by sending the
+//! same [`Input`]s the original windows would have produced.
+//!
+//! Forms without a bespoke screen yet are hosted generically: drawn by the VCL renderer in the
+//! game skin, scaled to fit their scene or sheet.
+
+pub mod settings;
+pub mod textbox;
+pub mod theme;
+
+use crate::assets::Assets;
+use crate::vcl::model::{Form, MenuItem};
+use crate::vcl::render::{strip_amp, Renderer, Skin, GAME_FACE, MENU_HEIGHT};
+use crate::vcl::runtime::{Dialog, Input, Snapshot};
+use egui::emath::TSTransform;
+use egui::{Align2, Color32, Id, LayerId, Order, Pos2, Rect, Sense, Vec2};
+use settings::{Settings, TextSpeed};
+use std::sync::mpsc::Sender;
+use theme as t;
+
+/// Forms that fill the screen; every other form is a sheet.
+const SCENES: [&str; 3] = ["Form3", "Form1", "Form4"];
+const DOCK_H: f32 = 64.0;
+
+/// Sheets that are not forms.
+const OPTIONS: &str = "#options";
+const MENU: &str = "#menu";
+
+pub struct GameUi {
+    pub settings: Settings,
+    renderer: Renderer,
+    textbox: textbox::TextBox,
+    raise_seq: u64,
+    /// The sheet the player is looking at (a form var, or OPTIONS / MENU).
+    sheet: Option<String>,
+    /// Last sheet shown, kept while it animates out.
+    sheet_closing: Option<String>,
+    /// Drill-down path in the menu sheet (item names).
+    menu_path: Vec<String>,
+    scene: String,
+    scene_changed_at: f64,
+}
+
+impl GameUi {
+    pub fn new(ctx: &egui::Context) -> GameUi {
+        let mut fonts = egui::FontDefinitions::default();
+        crate::vcl::render::add_system_fonts(&mut fonts);
+        t::install_fonts(&mut fonts);
+        ctx.set_fonts(fonts);
+        let ui = GameUi {
+            settings: Settings::load(),
+            renderer: Renderer::default(),
+            textbox: textbox::TextBox::default(),
+            raise_seq: 0,
+            sheet: None,
+            sheet_closing: None,
+            menu_path: Vec::new(),
+            scene: String::new(),
+            scene_changed_at: 0.0,
+        };
+        ui.apply_visuals(ctx);
+        ui
+    }
+
+    fn apply_visuals(&self, ctx: &egui::Context) {
+        if self.settings.classic {
+            crate::vcl::render::classic_visuals(ctx);
+        } else {
+            ctx.set_visuals(t::game_visuals());
+        }
+    }
+
+    fn set_classic(&mut self, ctx: &egui::Context, on: bool) {
+        self.settings.classic = on;
+        self.settings.save();
+        self.apply_visuals(ctx);
+    }
+
+    pub fn show(&mut self, ctx: &egui::Context, snap: &Snapshot, assets: &Assets, tx: &Sender<Input>) {
+        if ctx.input(|i| i.key_pressed(egui::Key::F2)) {
+            let on = !self.settings.classic;
+            self.set_classic(ctx, on);
+        }
+        if self.settings.classic {
+            self.renderer.skin = Skin::Classic;
+            self.renderer.show(ctx, snap, assets, tx);
+            self.classic_overlay(ctx, snap, tx);
+            return;
+        }
+        self.renderer.skin = Skin::Game;
+        self.game(ctx, snap, assets, tx);
+    }
+
+    /// Classic mode: a small gear in the corner opens Options as a window.
+    fn classic_overlay(&mut self, ctx: &egui::Context, snap: &Snapshot, tx: &Sender<Input>) {
+        let screen = ctx.screen_rect();
+        egui::Area::new(Id::new("classic_gear")).order(Order::Foreground).fixed_pos(screen.right_bottom() - Vec2::new(36.0, 36.0)).show(ctx, |ui| {
+            if ui.add(egui::Button::new("⚙").min_size(Vec2::splat(28.0))).on_hover_text("Options (F2: game mode)").clicked() {
+                self.sheet = if self.sheet.as_deref() == Some(OPTIONS) { None } else { Some(OPTIONS.into()) };
+            }
+        });
+        if self.sheet.as_deref() == Some(OPTIONS) {
+            let mut open = true;
+            egui::Window::new("Options").open(&mut open).collapsible(false).resizable(false).show(ctx, |ui| {
+                ui.set_width(320.0);
+                self.options_body(ui, ctx, snap, tx);
+            });
+            if !open {
+                self.sheet = None;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------ game mode
+
+    fn game(&mut self, ctx: &egui::Context, snap: &Snapshot, assets: &Assets, tx: &Sender<Input>) {
+        let now = ctx.input(|i| i.time);
+        let screen = ctx.screen_rect();
+        let wide = screen.width() >= 820.0 && screen.width() > screen.height() * 1.15;
+        let anim = |secs: f32| if self.settings.animations { secs } else { 0.0 };
+
+        egui::CentralPanel::default().frame(egui::Frame::new()).show(ctx, |ui| {
+            t::backdrop(ui.painter(), screen, if self.settings.animations { now } else { 0.0 });
+        });
+        if self.settings.animations {
+            ctx.request_repaint_after(std::time::Duration::from_millis(50));
+        }
+
+        let modal_form = match &snap.dialog {
+            Some((_, Dialog::ModalForm { var })) => Some(var.clone()),
+            _ => None,
+        };
+        let any_dialog = snap.dialog.is_some();
+        let visible: Vec<&Form> = snap.forms.iter().filter(|f| f.visible).collect();
+        let by_z = |a: &&Form| snap.z_order.iter().position(|v| *v == a.var).unwrap_or(0);
+
+        // Scene = the top-most visible full-screen form.
+        let scene = visible.iter().filter(|f| SCENES.contains(&f.var.as_str())).max_by_key(|f| by_z(f)).map(|f| f.var.clone()).unwrap_or_default();
+        if scene != self.scene {
+            self.scene = scene.clone();
+            self.scene_changed_at = now;
+        }
+        let sheets: Vec<&Form> = {
+            let mut v: Vec<&Form> = visible.iter().copied().filter(|f| !SCENES.contains(&f.var.as_str())).collect();
+            v.sort_by_key(by_z);
+            v
+        };
+
+        // A form the program just brought to the front opens as the sheet.
+        if snap.raise_seq != self.raise_seq {
+            self.raise_seq = snap.raise_seq;
+            if let Some(top) = snap.z_order.last() {
+                // The battle log comes forward on every battle; it stays a chip instead of covering the fight.
+                if top != "Form7" && sheets.iter().any(|f| f.var == *top) {
+                    self.sheet = Some(top.clone());
+                }
+            }
+        }
+        if let Some(m) = &modal_form {
+            if sheets.iter().any(|f| f.var == *m) {
+                self.sheet = Some(m.clone());
+            }
+        }
+        // A form sheet whose form was hidden closes.
+        if let Some(s) = self.sheet.clone() {
+            let gone = !s.starts_with('#') && !sheets.iter().any(|f| f.var == s);
+            let no_menu = s == MENU && !visible.iter().any(|f| f.var == self.scene && !f.menu.is_empty());
+            if gone || no_menu {
+                self.sheet = None;
+            }
+        }
+
+        // Layout.
+        let open = ctx.animate_bool_with_time(Id::new("sheet_open"), self.sheet.is_some(), anim(0.22));
+        let open = ease_out(open);
+        if self.sheet.is_some() {
+            self.sheet_closing = self.sheet.clone();
+        } else if open == 0.0 {
+            self.sheet_closing = None;
+        }
+        let panel_w = (screen.width() * 0.42).clamp(380.0, 620.0);
+        let scene_rect = if wide {
+            Rect::from_min_max(screen.min, Pos2::new(screen.right() - panel_w * open, screen.bottom() - DOCK_H))
+        } else {
+            Rect::from_min_max(screen.min, Pos2::new(screen.right(), screen.bottom() - DOCK_H))
+        };
+
+        // Scene.
+        let scene_fade = ctx.animate_bool_with_time(Id::new(("scene_in", self.scene.as_str())), true, anim(0.35));
+        if let Some(form) = visible.iter().find(|f| f.var == self.scene) {
+            let interactive = !any_dialog || modal_form.as_deref() == Some(form.var.as_str());
+            self.host_form(ctx, form, scene_rect.shrink(8.0), LayerId::new(Order::Middle, Id::new(("scene", &form.var))), interactive && (self.sheet.is_none() || wide), assets, tx, scene_fade, true);
+        }
+        if scene_fade < 1.0 {
+            // Fade in from white on scene changes.
+            let a = ((1.0 - scene_fade) * 255.0) as u8;
+            ctx.layer_painter(LayerId::new(Order::Middle, Id::new("scene_fade"))).rect_filled(screen, 0.0, Color32::from_white_alpha(a));
+        }
+
+        self.dock(ctx, screen, scene_rect, &sheets, snap, wide);
+
+        // Sheet.
+        if let Some(name) = self.sheet_closing.clone() {
+            let sheet_rect = if wide {
+                Rect::from_min_size(Pos2::new(screen.right() - panel_w * open, screen.top()), Vec2::new(panel_w, screen.height()))
+            } else {
+                let h = (screen.height() * 0.86).min(screen.height() - 40.0);
+                Rect::from_min_size(Pos2::new(screen.left(), screen.bottom() - h * open), Vec2::new(screen.width(), h))
+            };
+            if !wide {
+                // Dim the scene; tapping it closes the sheet (unless a modal form needs an answer).
+                let dim = egui::Area::new(Id::new("sheet_dim")).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+                    ui.painter().rect_filled(screen, 0.0, Color32::from_black_alpha((110.0 * open) as u8));
+                    ui.allocate_rect(screen, Sense::click()).clicked()
+                });
+                if dim.inner && modal_form.is_none() && !any_dialog {
+                    self.sheet = None;
+                }
+            }
+            let layer = LayerId::new(Order::Foreground, Id::new("sheet"));
+            egui::Area::new(layer.id).order(Order::Foreground).fixed_pos(sheet_rect.min).constrain(false).show(ctx, |ui| {
+                let p = ui.painter();
+                let r = Rect::from_min_size(sheet_rect.min, sheet_rect.size() + Vec2::new(0.0, 20.0));
+                p.rect_filled(r.translate(Vec2::new(0.0, -4.0)), 18.0, Color32::from_black_alpha(40));
+                p.rect_filled(r, 18.0, t::FRAME);
+                p.rect_filled(r.shrink(t::PX * 1.5), 16.0, GAME_FACE);
+                // Header: grab handle, title, close.
+                let title = match name.as_str() {
+                    OPTIONS => "Options".to_string(),
+                    MENU => "Menu".to_string(),
+                    v => sheets.iter().find(|f| f.var == v).map(|f| strip_amp(&f.caption)).unwrap_or_default(),
+                };
+                if !wide {
+                    p.rect_filled(Rect::from_center_size(Pos2::new(r.center().x, r.top() + 10.0), Vec2::new(48.0, 5.0)), 3.0, t::GREY);
+                }
+                t::text(p, r.left_top() + Vec2::new(20.0, 34.0), Align2::LEFT_CENTER, &title, t::bold(22.0), t::INK);
+                let can_close = modal_form.as_deref() != Some(name.as_str());
+                if can_close {
+                    let b = Rect::from_center_size(r.right_top() + Vec2::new(-34.0, 34.0), Vec2::splat(40.0));
+                    if t::button(ui, b, "", t::ButtonKind::Plain, true).clicked() {
+                        self.sheet = None;
+                    }
+                    t::icon(ui.painter(), b.center() - Vec2::new(0.0, 2.0), 18.0, t::Icon::Close, t::INK);
+                }
+                let body = Rect::from_min_max(sheet_rect.min + Vec2::new(12.0, 62.0), sheet_rect.max - Vec2::new(12.0, 12.0));
+                ui.allocate_rect(sheet_rect, Sense::hover());
+                match name.as_str() {
+                    OPTIONS => {
+                        ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| self.options_body(ui, ctx, snap, tx));
+                    }
+                    MENU => {
+                        if let Some(form) = visible.iter().find(|f| f.var == self.scene) {
+                            ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| self.menu_body(ui, form, tx, !any_dialog));
+                        }
+                    }
+                    _ => {}
+                }
+            });
+            ctx.move_to_top(layer);
+            if let Some(form) = sheets.iter().find(|f| f.var == name) {
+                let body = Rect::from_min_max(sheet_rect.min + Vec2::new(12.0, 62.0), sheet_rect.max - Vec2::new(12.0, 12.0));
+                let interactive = !any_dialog || modal_form.as_deref() == Some(form.var.as_str());
+                let flayer = LayerId::new(Order::Foreground, Id::new(("sheetform", &form.var)));
+                self.host_form(ctx, form, body, flayer, interactive && self.sheet.is_some(), assets, tx, 1.0, false);
+                ctx.move_to_top(flayer);
+            }
+        }
+
+        // Message boxes.
+        if let Some((id, Dialog::Message { text, kind, buttons })) = &snap.dialog {
+            self.textbox.show(ctx, scene_rect, *id, text, *kind, *buttons, &self.settings, tx);
+        }
+    }
+
+    /// Draw `form` scaled to fit `area` on its own transformed layer.
+    #[allow(clippy::too_many_arguments)]
+    /// `card`: draw a framed card behind it (scenes); sheets are their own card and top-align.
+    fn host_form(&mut self, ctx: &egui::Context, form: &Form, area: Rect, layer: LayerId, interactive: bool, assets: &Assets, tx: &Sender<Input>, alpha: f32, card: bool) {
+        let size = Vec2::new(form.client_width as f32, form.client_height as f32);
+        let scale = (area.width() / size.x).min(area.height() / size.y).clamp(0.4, 1.8);
+        let shown = size * scale;
+        let top_gap = if card { ((area.height() - shown.y) / 2.0).max(0.0) * 0.4 } else { 0.0 };
+        let origin = Pos2::new(area.center().x - shown.x / 2.0, area.top() + top_gap);
+        ctx.set_transform_layer(layer, TSTransform::from_translation(origin.to_vec2()) * TSTransform::from_scaling(scale));
+        egui::Area::new(layer.id).order(layer.order).fixed_pos(Pos2::ZERO).constrain(false).show(ctx, |ui| {
+            let local = Rect::from_min_size(Pos2::ZERO, size);
+            ui.set_clip_rect(local.expand(400.0));
+            ui.set_min_size(size);
+            ui.set_max_size(size);
+            ui.multiply_opacity(alpha);
+            if card {
+                // Card behind the form, in the form's own (scaled) coordinates.
+                let r = local.expand(10.0 / scale);
+                let p = ui.painter();
+                p.rect_filled(r.translate(Vec2::new(0.0, 5.0 / scale)), 14.0 / scale, Color32::from_black_alpha(50));
+                p.rect_filled(r, 14.0 / scale, t::FRAME);
+                p.rect_filled(r.shrink(3.0 / scale), 12.0 / scale, GAME_FACE);
+            }
+            self.renderer.form_body(ui, form, assets, tx, interactive, false);
+        });
+        ctx.move_to_top(layer);
+    }
+
+    /// Bottom dock: Menu (when the scene has one), a chip per open window, Options.
+    fn dock(&mut self, ctx: &egui::Context, screen: Rect, scene_rect: Rect, sheets: &[&Form], snap: &Snapshot, wide: bool) {
+        let dock = Rect::from_min_max(Pos2::new(scene_rect.left(), screen.bottom() - DOCK_H), Pos2::new(scene_rect.right(), screen.bottom()));
+        let has_menu = snap.forms.iter().any(|f| f.var == self.scene && f.visible && !f.menu.is_empty());
+        egui::Area::new(Id::new("dock")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+            let p = ui.painter();
+            p.rect_filled(dock, 0.0, Color32::from_black_alpha(60));
+            let mut x = dock.left() + 10.0;
+            let y = dock.center().y;
+            if has_menu {
+                if t::button(ui, Rect::from_center_size(Pos2::new(x + 46.0, y), Vec2::new(92.0, 46.0)), "MENU", t::ButtonKind::Danger, true).clicked() {
+                    self.menu_path.clear();
+                    self.sheet = if self.sheet.as_deref() == Some(MENU) { None } else { Some(MENU.into()) };
+                }
+                x += 100.0;
+            }
+            // Window chips share the space up to the Options button; scroll sideways if crowded.
+            let room = Rect::from_min_max(Pos2::new(x, dock.top()), Pos2::new(dock.right() - 66.0, dock.bottom()));
+            let labels: Vec<(String, String)> = sheets.iter().map(|f| (short_caption(&f.caption), f.var.clone())).collect();
+            let natural: Vec<f32> = labels.iter().map(|(l, _)| (l.chars().count() as f32 * 11.0 + 34.0).clamp(72.0, 190.0)).collect();
+            let total: f32 = natural.iter().sum::<f32>() + 8.0 * labels.len() as f32;
+            let squeeze = if total > room.width() { (room.width() / total).max(0.62) } else { 1.0 };
+            ui.scope_builder(egui::UiBuilder::new().max_rect(room), |ui| {
+                egui::ScrollArea::horizontal().id_salt("dock_chips").scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden).show(ui, |ui| {
+                    let w_all: f32 = natural.iter().map(|w| w * squeeze + 8.0).sum();
+                    let (strip, _) = ui.allocate_exact_size(Vec2::new(w_all, room.height()), Sense::hover());
+                    let mut cx = strip.left();
+                    for ((label, var), w) in labels.iter().zip(&natural) {
+                        let w = w * squeeze;
+                        let r = Rect::from_center_size(Pos2::new(cx + w / 2.0, y), Vec2::new(w, 46.0));
+                        cx += w + 8.0;
+                        let active = self.sheet.as_deref() == Some(var.as_str());
+                        if t::button(ui, r, label, if active { t::ButtonKind::Primary } else { t::ButtonKind::Plain }, true).clicked() {
+                            self.sheet = if active { None } else { Some(var.clone()) };
+                        }
+                    }
+                });
+            });
+            let r = Rect::from_center_size(Pos2::new(dock.right() - 34.0, y), Vec2::splat(46.0));
+            let active = self.sheet.as_deref() == Some(OPTIONS);
+            if t::button(ui, r, "⚙", if active { t::ButtonKind::Primary } else { t::ButtonKind::Plain }, true).clicked() {
+                self.sheet = if active { None } else { Some(OPTIONS.into()) };
+            }
+            let _ = wide;
+        });
+    }
+
+    /// The scene form's main menu as big touch buttons with drill-down.
+    fn menu_body(&mut self, ui: &mut egui::Ui, form: &Form, tx: &Sender<Input>, interactive: bool) {
+        let mut items: &[MenuItem] = &form.menu;
+        let mut crumbs = Vec::new();
+        for name in &self.menu_path {
+            match items.iter().find(|m| m.name == *name) {
+                Some(m) => {
+                    crumbs.push(strip_amp(&m.caption));
+                    items = &m.children;
+                }
+                None => break,
+            }
+        }
+        let width = ui.available_width();
+        if !self.menu_path.is_empty() {
+            let r = ui.allocate_exact_size(Vec2::new(width, 44.0), Sense::hover()).0;
+            let back = Rect::from_min_size(r.min, Vec2::new(96.0, 40.0));
+            let clicked = t::button(ui, back, "  Back", t::ButtonKind::Plain, true).clicked();
+            t::icon(ui.painter(), back.left_center() + Vec2::new(18.0, -2.0), 12.0, t::Icon::Left, t::INK);
+            if clicked {
+                self.menu_path.pop();
+            }
+            t::text(ui.painter(), r.left_center() + Vec2::new(108.0, -2.0), Align2::LEFT_CENTER, &crumbs.join(" / "), t::bold(18.0), t::INK);
+            ui.add_space(6.0);
+        }
+        let cols = if width > 520.0 { 3 } else { 2 };
+        let gap = 8.0;
+        let bw = (width - gap * (cols as f32 - 1.0)) / cols as f32;
+        let items: Vec<&MenuItem> = items.iter().filter(|m| m.visible && strip_amp(&m.caption) != "-").collect();
+        egui::ScrollArea::vertical().id_salt(("menu", self.menu_path.join("/"))).show(ui, |ui| {
+            for row in items.chunks(cols) {
+                let (r, _) = ui.allocate_exact_size(Vec2::new(width, 56.0), Sense::hover());
+                for (k, m) in row.iter().enumerate() {
+                    let br = Rect::from_min_size(r.min + Vec2::new(k as f32 * (bw + gap), 0.0), Vec2::new(bw, 50.0));
+                    let label = strip_amp(&m.caption);
+                    let enabled = interactive && m.enabled;
+                    let resp = t::button(ui, br, &label, t::ButtonKind::Plain, enabled);
+                    let p = ui.painter();
+                    if !m.children.is_empty() {
+                        t::icon(p, br.right_center() + Vec2::new(-14.0, -2.0), 10.0, t::Icon::Right, if enabled { t::INK } else { t::GREY });
+                    }
+                    if m.checked {
+                        t::icon(p, br.left_center() + Vec2::new(16.0, -2.0), 14.0, t::Icon::Check, t::BLUE);
+                    }
+                    if !m.enabled {
+                        t::icon(p, br.right_top() + Vec2::new(-14.0, 14.0), 12.0, t::Icon::Lock, t::GREY);
+                    }
+                    if resp.clicked() {
+                        if !m.children.is_empty() {
+                            self.menu_path.push(m.name.clone());
+                        } else if m.on_click.is_some() {
+                            let _ = tx.send(Input::Menu { form: form.var.clone(), item: m.name.clone() });
+                            self.sheet = None;
+                            self.menu_path.clear();
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    fn options_body(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, snap: &Snapshot, tx: &Sender<Input>) {
+        let width = ui.available_width();
+        let row = |ui: &mut egui::Ui, label: &str| {
+            ui.add_space(8.0);
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 26.0), Sense::hover());
+            t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, label, t::bold(20.0), t::INK);
+        };
+        row(ui, "Text speed");
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
+        let w = (width - 3.0 * 6.0) / 4.0;
+        for (k, s) in TextSpeed::ALL.into_iter().enumerate() {
+            let b = Rect::from_min_size(r.min + Vec2::new(k as f32 * (w + 6.0), 0.0), Vec2::new(w, 46.0));
+            let kind = if self.settings.text_speed == s { t::ButtonKind::Primary } else { t::ButtonKind::Plain };
+            if t::button(ui, b, s.label(), kind, true).clicked() {
+                self.settings.text_speed = s;
+                self.settings.save();
+            }
+        }
+        row(ui, "Display");
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
+        let half = (width - 6.0) / 2.0;
+        let anim_label = if self.settings.animations { "Animations: ON" } else { "Animations: OFF" };
+        if t::button(ui, Rect::from_min_size(r.min, Vec2::new(half, 46.0)), anim_label, t::ButtonKind::Plain, true).clicked() {
+            self.settings.animations = !self.settings.animations;
+            self.settings.save();
+        }
+        let classic_label = if self.settings.classic { "Classic: ON" } else { "Classic look" };
+        if t::button(ui, Rect::from_min_size(r.min + Vec2::new(half + 6.0, 0.0), Vec2::new(half, 46.0)), classic_label, t::ButtonKind::Plain, true).clicked() {
+            let on = !self.settings.classic;
+            self.set_classic(ctx, on);
+        }
+        // Music: the original Form4 menu items, so their checked state stays in the program.
+        if let Some(f4) = snap.forms.iter().find(|f| f.var == "Form4" && f.visible) {
+            row(ui, "Music");
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
+            let free = snap.dialog.is_none();
+            let item = |name: &str| f4.menu.iter().find_map(|m| m.find(name));
+            if let Some(stop) = item("StopMusic1") {
+                if t::button(ui, Rect::from_min_size(r.min, Vec2::new(half, 46.0)), "Stop music", t::ButtonKind::Plain, free && stop.enabled).clicked() {
+                    let _ = tx.send(Input::Menu { form: "Form4".into(), item: stop.name.clone() });
+                }
+            }
+            if let Some(rep) = item("RepeatMusic1") {
+                let label = if rep.checked { "Repeat: ON" } else { "Repeat: OFF" };
+                if t::button(ui, Rect::from_min_size(r.min + Vec2::new(half + 6.0, 0.0), Vec2::new(half, 46.0)), label, t::ButtonKind::Plain, free && rep.enabled).clicked() {
+                    let _ = tx.send(Input::Menu { form: "Form4".into(), item: rep.name.clone() });
+                }
+            }
+        }
+        ui.add_space(14.0);
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 22.0), Sense::hover());
+        t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, "F2 switches between game and classic look.", t::body(16.0), t::GREY);
+        let _ = MENU_HEIGHT;
+    }
+}
+
+fn ease_out(x: f32) -> f32 {
+    1.0 - (1.0 - x).powi(3)
+}
+
+/// Window captions are long ("POKéMON Simulator V4.5 - Statistics"); keep the meaningful part.
+fn short_caption(c: &str) -> String {
+    let c = strip_amp(c);
+    let c = c.rsplit(" - ").next().unwrap_or(&c).trim().to_string();
+    if c.chars().count() > 16 {
+        c.chars().take(15).collect::<String>() + "…"
+    } else {
+        c
+    }
+}

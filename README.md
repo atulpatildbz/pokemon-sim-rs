@@ -25,6 +25,16 @@ form layouts and game data are read from those files at start-up.
 - **UI**: forms are built from the original DFM resources and rendered with egui; modal dialogs,
   timers and re-entrancy follow the VCL message loop.
 
+## Game UI
+
+By default the game runs in a GBA-style skin: one full-screen scene (title / main window), other
+windows as slide-up sheets (docked on the right on wide screens), a Pokémon-style text box for
+messages, touch-sized buttons and a MENU sheet for the main menu. **F2** (or Options → Classic look)
+switches back to the original Windows forms. Preferences live in `settings.txt` in the app data
+folder, never in the save file. Fonts: Press Start 2P (OFL) and Pixel Operator (CC0), in `fonts/`.
+
+`POKEGAME_WINDOW=390x844` opens a phone-shaped window for trying the portrait layout.
+
 ## Known differences
 
 - Help (`.hlp`, WinHelp) is not displayed — WinHelp no longer exists (also not on modern Windows).
@@ -35,7 +45,12 @@ form layouts and game data are read from those files at start-up.
 
 ## Tests
 
-    cargo test        # asset loading, F80 vectors, RTL, memory model, headless game flows
+    cargo test --release   # asset loading, F80 vectors, RTL, memory model, headless game flows
+
+`tests/golden.rs` replays long seeded sessions through the same input path as the UI and compares a
+fingerprint of the entire program state after every step with `tests/golden/*.txt`. It guards the
+front-end work: any change in game behaviour fails it. Regenerate only for an intended behaviour
+change: `UPDATE_GOLDEN=1 cargo test --release --test golden`.
 
 Debug harness: `POKEGAME_SHOTS=<dir>` saves screenshots; `POKEGAME_AUTOPLAY=<script>` replays UI actions
 (see `src/debug.rs`).

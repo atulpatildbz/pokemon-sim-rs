@@ -250,6 +250,19 @@ impl Mem {
         m
     }
 
+    /// Every byte of emulated memory plus the string heap (sorted), for state fingerprints.
+    pub fn digest_into(&self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.bytes);
+        let mut keys: Vec<&u32> = self.strings.keys().collect();
+        keys.sort();
+        for k in keys {
+            out.extend_from_slice(&k.to_le_bytes());
+            out.extend_from_slice(self.strings[k].as_bytes());
+            out.push(0);
+        }
+        out.extend_from_slice(&self.next_heap.to_le_bytes());
+    }
+
     fn off(&self, a: u32) -> Option<usize> {
         (MEM_BASE..MEM_END).contains(&a).then(|| (a - MEM_BASE) as usize)
     }

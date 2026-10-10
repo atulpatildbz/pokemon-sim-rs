@@ -8,7 +8,7 @@
 use pokegame::assets::{pe, Assets};
 use pokegame::debug::Harness;
 use pokegame::game::world::World;
-use pokegame::vcl::render::{install_fonts, Renderer};
+use pokegame::ui::GameUi;
 use pokegame::vcl::runtime::{Bridge, Dialog, DialogAnswer, Input, Snapshot};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -21,17 +21,35 @@ fn has_game(dir: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// Where the folder picked last time is remembered.
+fn remembered_dir_file() -> Option<PathBuf> {
+    pokegame::ui::settings::app_dir().map(|d| d.join("game_dir.txt"))
+}
+
 fn find_game_dir(arg: Option<String>) -> Option<PathBuf> {
+    let remembered = remembered_dir_file().and_then(|f| std::fs::read_to_string(f).ok()).map(|s| PathBuf::from(s.trim()));
     let candidates = [
         arg.map(PathBuf::from),
         std::env::var_os("POKEGAME_DIR").map(PathBuf::from),
+        remembered,
         std::env::current_dir().ok(),
         std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)),
+        // Development checkout: the extracted original next to this crate.
+        Some(Path::new(env!("CARGO_MANIFEST_DIR")).join("../downloads/pokegame/extracted")),
     ];
     if let Some(d) = candidates.into_iter().flatten().find(|d| has_game(d)) {
         return Some(d);
     }
-    rfd::FileDialog::new().set_title("Select the folder containing PokeGame.exe and POKéGAME.dat").pick_folder()
+    let picked = rfd::FileDialog::new().set_title("Select the folder containing PokeGame.exe and POKéGAME.dat").pick_folder()?;
+    if has_game(&picked) {
+        if let Some(f) = remembered_dir_file() {
+            if let Some(dir) = f.parent() {
+                let _ = std::fs::create_dir_all(dir);
+            }
+            let _ = std::fs::write(f, picked.to_string_lossy().as_bytes());
+        }
+    }
+    Some(picked)
 }
 
 /// The original DATA section bytes (VA 0x48e000), for the emulated data segment.
@@ -53,7 +71,7 @@ struct App {
     assets: Arc<Assets>,
     snapshot: Arc<Mutex<Snapshot>>,
     tx: Sender<Input>,
-    renderer: Renderer,
+    ui: GameUi,
     answered: HashSet<u64>,
     screen: (i32, i32),
     harness: Harness,
@@ -125,8 +143,19 @@ impl eframe::App for App {
                 let _ = self.tx.send(Input::Answer { id: *id, answer: DialogAnswer::File(path) });
             }
         }
-        self.renderer.show(ctx, &snap, &self.assets, &self.tx);
+        self.ui.show(ctx, &snap, &self.assets, &self.tx);
     }
+}
+
+/// Initial window size; `POKEGAME_WINDOW=WxH` overrides it (e.g. 390x844 to try a phone layout).
+fn window_size() -> [f32; 2] {
+    std::env::var("POKEGAME_WINDOW")
+        .ok()
+        .and_then(|v| {
+            let (w, h) = v.split_once('x')?;
+            Some([w.parse().ok()?, h.parse().ok()?])
+        })
+        .unwrap_or([1024.0, 740.0])
 }
 
 fn main() {
@@ -156,8 +185,8 @@ fn main() {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("POKéMON Simulator")
-            .with_inner_size([1024.0, 740.0])
-            .with_min_inner_size([640.0, 480.0]),
+            .with_inner_size(window_size())
+            .with_min_inner_size([360.0, 480.0]),
         ..Default::default()
     };
     let snap2 = snapshot.clone();
@@ -166,7 +195,7 @@ fn main() {
         "POKéMON Simulator",
         options,
         Box::new(move |cc| {
-            install_fonts(&cc.egui_ctx);
+            let ui = GameUi::new(&cc.egui_ctx);
             let ctx = cc.egui_ctx.clone();
             let bridge = Bridge::new(snap2.clone(), rx, Box::new(move || ctx.request_repaint()));
             let assets_t = assets2.clone();
@@ -182,7 +211,7 @@ fn main() {
                 assets: assets2,
                 snapshot: snap2,
                 tx,
-                renderer: Renderer::default(),
+                ui,
                 answered: HashSet::new(),
                 screen: (0, 0),
                 harness: Harness::from_env(),

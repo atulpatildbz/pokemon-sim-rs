@@ -570,6 +570,17 @@ impl World {
             None => return Ok(None),
         };
         let Some(input) = input else { return Ok(None) };
+        if let Input::Answer { id, answer } = input {
+            return Ok((Some(id) == waiting).then_some(answer));
+        }
+        self.handle_input(input);
+        Ok(None)
+    }
+
+    /// Deliver one UI input to the program, exactly as the message loop does (also used by
+    /// headless drivers). Inputs for forms other than the modal one are dropped while a dialog
+    /// is open.
+    pub fn handle_input(&mut self, input: Input) {
         let modal_form = match self.dialogs.last() {
             Some((_, Dialog::ModalForm { var })) => Some(var.clone()),
             Some(_) => Some(String::new()),
@@ -577,11 +588,6 @@ impl World {
         };
         let allowed = |form: &str| modal_form.as_deref().is_none_or(|m| m == form);
         match input {
-            Input::Answer { id, answer } => {
-                if Some(id) == waiting {
-                    return Ok(Some(answer));
-                }
-            }
             Input::Quit => {
                 self.terminated = true;
             }
@@ -655,7 +661,6 @@ impl World {
             }
             _ => {}
         }
-        Ok(None)
     }
 
     /// Dispatch a message: run the handler, and show an exception like Application.HandleException.

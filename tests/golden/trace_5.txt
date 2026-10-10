@@ -1,0 +1,1500 @@
+0 click Form1.LoadButton 0ba461c56fba1d6b
+1 click Form1.LoadButton 0ba461c56fba1d6b
+2 click Form1.NewButton 0ac014c7aa5ad5b4
+3 lv Form4.ListView1 2 bab6d3c428599f44
+4 menu Form4.IntermediateLevels30501 5de28342ff92578e
+5 menu Form4.IntermediateLevels30501 a58437ccbefd7490
+6 menu Form4.VeryHardLevels70991 c50bc793625c11da
+7 menu Form4.IntermediateLevels30501 93dcd0a6c6ac08fc
+8 menu Form4.PrimeCupLevel1001 2666ebf019f02056
+9 menu Form4.Brock1 72417e2418168e52
+10 click Form8.Button1 0c89a395f96368bf
+11 timers 404e6979a15524e0
+12 menu Form4.Contents1 404e6979a15524e0
+13 lvdbl Form5.ListView1 0 8c75ce6b54054db1
+14 menu Form4.About1 714b4362aa3e60d8
+15 menu Form4.Openfile1 714b4362aa3e60d8
+16 lvdbl Form5.ListView1 0 0641aabef77e2fc1
+17 menu Form4.StopMusic1 7c2dfd07c2409e63
+18 menu Form4.About1 7c2dfd07c2409e63
+19 lvdbl Form5.ListView1 0 f31515f40ab8b22e
+20 menu Form4.Contents1 f31515f40ab8b22e
+21 menu Form4.Openfile1 f31515f40ab8b22e
+22 lvdbl Form5.ListView1 0 87a512d4d0fe4ba1
+23 menu Form4.About1 87a512d4d0fe4ba1
+24 radio Form4.RadioGroup1 0 ae5caebad5102793
+25 click Form4.Button1 73ef758374a7fe5c
+26 click Form4.Button1 34aad7de4f3dc142
+27 click Form4.Button1 47649d1412997c0c
+28 click Form4.Button1 a8697a5dc55fff05
+29 timers a253d24c98dd8f39
+30 timers a253d24c98dd8f39
+31 click Form4.EndButton d8964ff82ed35859
+32 menu Form4.ProfOak1 532fff396b7cb550
+33 menu Form4.Openfile1 532fff396b7cb550
+34 timers 532fff396b7cb550
+35 menu Form4.RepeatMusic1 b3dc736dd4b7cd07
+36 menu Form4.StopMusic1 9b7f14f79338ef89
+37 timers 9b7f14f79338ef89
+38 timers 9b7f14f79338ef89
+39 lvdbl Form5.ListView1 0 84c13ba4c307273c
+40 click Form4.Button1 84c13ba4c307273c
+41 click Form4.Button1 84c13ba4c307273c
+42 click Form4.Button1 84c13ba4c307273c
+43 menu Form4.Contents1 84c13ba4c307273c
+44 timers ccaea3c077c52209
+45 click Form4.Button1 ccaea3c077c52209
+46 click Form4.Button1 ccaea3c077c52209
+47 click Form4.Button1 ccaea3c077c52209
+48 click Form4.Button1 ccaea3c077c52209
+49 click Form4.Button1 ccaea3c077c52209
+50 radio Form4.RadioGroup1 2 e96649c089c76c25
+51 click Form4.Button1 ef0145d668430e0d
+52 click Form4.EndButton 101d5a49d3334d11
+53 menu Form4.Red1 67b54f9b73152f66
+54 lvdbl Form5.ListView1 0 3910f8ed90518e77
+55 menu Form4.About1 3910f8ed90518e77
+56 lvdbl Form5.ListView1 0 d9651820122b4c90
+57 radio Form4.RadioGroup1 2 8869b4d12514d4ac
+58 click Form4.Button1 76b7c4f8a04aec49
+59 click Form4.Button1 4712cd5aed1fa5dd
+60 timers 6263076695b17e5f
+61 click Form4.Button1 d2845c3f477614a1
+62 click Form4.Button1 ac53b84d8bab0520
+63 click Form4.Button1 0350ae6120248abe
+64 radio Form4.RadioGroup1 4 24259d60801213f0
+65 click Form4.Button1 2a100e5c8d2ae62d
+66 click Form4.Button1 2b3330c2a383ea82
+67 click Form4.Button1 453164011c62e097
+68 click Form4.Button1 112395714ab496b4
+69 menu Form4.Contents1 112395714ab496b4
+70 click Form4.Button1 3b060d2c94a2aef9
+71 menu Form4.Openfile1 3b060d2c94a2aef9
+72 click Form4.Button1 061ac3aff663f096
+73 click Form4.Button1 dfba6ef0a116f3b3
+74 click Form4.Button1 e478985ac5190a08
+75 click Form4.Button1 0725bef5031e5e85
+76 menu Form4.About1 0725bef5031e5e85
+77 click Form4.Button1 127753dc888ee63a
+78 click Form4.Button1 e14dd7356ebdde8f
+79 click Form4.Button1 e3ea8f9fad31b6ec
+80 click Form4.Button1 bb931c8994ecd1f1
+81 click Form4.Button1 86bd7fb55ca9088e
+82 timers 86bd7fb55ca9088e
+83 menu Form4.RepeatMusic1 2d2abe01c449dd31
+84 click Form4.Button1 a31c0c931baaa5ce
+85 menu Form4.Contents1 a31c0c931baaa5ce
+86 click Form4.Button1 1002a2e7ac41cbcb
+87 click Form4.Button1 f4b6531998d4dd80
+88 click Form4.Button1 cb27555ffe3a0d3d
+89 click Form4.Button1 730b16798e77a052
+90 timers 730b16798e77a052
+91 click Form4.Button1 e5e8ba8515d55767
+92 click Form4.Button1 58f18a19bf508a84
+93 click Form4.Button1 a0d1011291698b89
+94 radio Form4.RadioGroup1 2 e2f7b7277a83e4d7
+95 click Form4.Button1 3919859d131105bc
+96 click Form4.Button1 4067636bcd351292
+97 click Form4.EndButton 1ab30ba8ae92e595
+98 menu Form4.Giovanni1 ea5de96708d0335f
+99 timers ae7c176a34e88c03
+100 menu Form4.Openfile1 ae7c176a34e88c03
+101 menu Form4.RepeatMusic1 5a580b9d2687a518
+102 timers 5a580b9d2687a518
+103 lvdbl Form5.ListView1 0 0663b17da283f1be
+104 timers dc60e7350f8f4b73
+105 radio Form4.RadioGroup1 3 95e0a87f3326543a
+106 click Form4.Button1 8cd731e205aca558
+107 menu Form4.RepeatMusic1 cfe1ed839ddac685
+108 menu Form4.About1 cfe1ed839ddac685
+109 timers 5832f3fa391663c1
+110 timers 5832f3fa391663c1
+111 click Form4.EndButton 360e79f32784e65e
+112 menu Form4.Buy1 be2de0b3afe3adda
+113 radio Form9.RadioGroup1 0 f0d5d1db0e375f36
+114 menu Form4.Ruby1 50be5f2181937eb0
+115 menu Form4.Openfile1 09504aab15555bcf
+116 click Form9.Button2 973fb5606f7c50de
+117 lvdbl Form5.ListView1 0 0bb479d503195b09
+118 menu Form4.Contents1 0bb479d503195b09
+119 menu Form4.Contents1 0bb479d503195b09
+120 menu Form4.RepeatMusic1 a863399355a2af3a
+121 timers a863399355a2af3a
+122 menu Form4.Openfile1 a863399355a2af3a
+123 menu Form4.StopMusic1 75b67ec3e2f49833
+124 menu Form4.StopMusic1 b5143c2d9f732012
+125 menu Form4.RepeatMusic1 0da366e3e92c5d5d
+126 lvdbl Form5.ListView1 0 3e48562784976996
+127 menu Form4.About1 3e48562784976996
+128 timers 3e48562784976996
+129 timers 3e48562784976996
+130 menu Form4.StopMusic1 2b02a5df51cec000
+131 timers 2b02a5df51cec000
+132 menu Form4.StopMusic1 8de0afde36b2b0ba
+133 timers 8de0afde36b2b0ba
+134 timers 8de0afde36b2b0ba
+135 timers 8de0afde36b2b0ba
+136 menu Form4.Contents1 8de0afde36b2b0ba
+137 lvdbl Form5.ListView1 0 8a926f92e97d1309
+138 timers 8a926f92e97d1309
+139 timers 8a926f92e97d1309
+140 menu Form4.About1 8a926f92e97d1309
+141 timers 8a926f92e97d1309
+142 lvdbl Form5.ListView1 0 48c7071fd0a72830
+143 radio Form4.RadioGroup1 4 876bbb6db97409e6
+144 click Form4.Button1 4977514a5dc995b5
+145 click Form4.Button1 461db2c189c64c2c
+146 click Form4.Button1 2cc65e8671a5632b
+147 click Form4.Button1 ca1787c131c6b1d2
+148 click Form4.Button1 f399424c2dde2e99
+149 click Form4.Button1 d68bd51a89418b98
+150 click Form4.Button1 2def5160c4dfb29f
+151 click Form4.Button1 b21c2509d7e1661e
+152 radio Form4.RadioGroup1 2 934961f6460ea75c
+153 menu Form4.Openfile1 934961f6460ea75c
+154 click Form4.Button1 2bcd0140198e1cb3
+155 timers 61f81fb233a3e8f8
+156 click Form4.Button1 67509659bf7db775
+157 click Form4.Button1 4e8c068a84509ca3
+158 menu Form4.About1 4e8c068a84509ca3
+159 click Form4.EndButton 39e2f3791cc12889
+160 menu Form4.Jesse1 d06f6f7242b0f7fd
+161 lvdbl Form5.ListView1 0 d03945d46f447036
+162 menu Form4.StopMusic1 4562aa1ee0c690a0
+163 timers 487d611e7fb7770b
+164 timers 487d611e7fb7770b
+165 menu Form4.RepeatMusic1 bf1a02b78589aa52
+166 timers bf1a02b78589aa52
+167 timers bf1a02b78589aa52
+168 lvdbl Form5.ListView1 0 70c96ec91569ecbb
+169 radio Form4.RadioGroup1 3 edf9712fa15900a0
+170 click Form4.Button1 a2527bc9650b2f70
+171 timers 401f08f54de2c42e
+172 radio Form4.RadioGroup1 3 401f08f54de2c42e
+173 menu Form4.RepeatMusic1 b1a13f66b7890773
+174 timers b1a13f66b7890773
+175 timers b1a13f66b7890773
+176 timers b1a13f66b7890773
+177 timers b1a13f66b7890773
+178 menu Form4.Contents1 b1a13f66b7890773
+179 menu Form4.About1 b1a13f66b7890773
+180 radio Form4.RadioGroup1 0 5f556146569992e4
+181 menu Form4.Openfile1 5f556146569992e4
+182 menu Form4.Openfile1 5f556146569992e4
+183 menu Form4.RepeatMusic1 e5f9bf78c8914acf
+184 timers e5f9bf78c8914acf
+185 radio Form4.RadioGroup1 1 90c6c4d2709e0fbc
+186 click Form4.EndButton 5b4ce6c15b85c795
+187 menu Form4.Brock1 c3532b64fe6cf3e1
+188 menu Form4.Openfile1 c3532b64fe6cf3e1
+189 timers c3532b64fe6cf3e1
+190 timers c3532b64fe6cf3e1
+191 menu Form4.StopMusic1 e400f83906506a77
+192 timers e400f83906506a77
+193 menu Form4.RepeatMusic1 177c9f4405801a1c
+194 menu Form4.RepeatMusic1 e400f83906506a77
+195 timers e400f83906506a77
+196 menu Form4.Openfile1 e400f83906506a77
+197 menu Form4.About1 e400f83906506a77
+198 menu Form4.RepeatMusic1 177c9f4405801a1c
+199 menu Form4.Contents1 177c9f4405801a1c
+200 timers 177c9f4405801a1c
+201 timers 177c9f4405801a1c
+202 menu Form4.About1 177c9f4405801a1c
+203 timers 177c9f4405801a1c
+204 timers 177c9f4405801a1c
+205 menu Form4.Contents1 177c9f4405801a1c
+206 timers 177c9f4405801a1c
+207 menu Form4.About1 177c9f4405801a1c
+208 menu Form4.Contents1 177c9f4405801a1c
+209 timers 177c9f4405801a1c
+210 timers 177c9f4405801a1c
+211 menu Form4.StopMusic1 c00eea781797e6bb
+212 timers c00eea781797e6bb
+213 timers c00eea781797e6bb
+214 menu Form4.StopMusic1 dc33adeb5bda1eb9
+215 lvdbl Form5.ListView1 0 42252b4849d2bdf6
+216 lvdbl Form5.ListView1 0 246fb28e4901f3e1
+217 timers 246fb28e4901f3e1
+218 menu Form4.Contents1 246fb28e4901f3e1
+219 menu Form4.RepeatMusic1 993039c281638896
+220 menu Form4.RepeatMusic1 246fb28e4901f3e1
+221 timers 246fb28e4901f3e1
+222 menu Form4.Contents1 246fb28e4901f3e1
+223 timers 246fb28e4901f3e1
+224 menu Form4.StopMusic1 f7b2e16c817e90bf
+225 menu Form4.Contents1 f7b2e16c817e90bf
+226 menu Form4.About1 f7b2e16c817e90bf
+227 timers f7b2e16c817e90bf
+228 menu Form4.StopMusic1 a6d875938b0f222d
+229 menu Form4.Openfile1 a6d875938b0f222d
+230 timers a6d875938b0f222d
+231 timers a6d875938b0f222d
+232 menu Form4.RepeatMusic1 e8c89379337ecfba
+233 timers e8c89379337ecfba
+234 timers e8c89379337ecfba
+235 timers e8c89379337ecfba
+236 menu Form4.StopMusic1 e0b916ebc5ebf238
+237 timers e0b916ebc5ebf238
+238 lvdbl Form5.ListView1 0 f42f659bf791365b
+239 menu Form4.RepeatMusic1 57890817d6107000
+240 menu Form4.RepeatMusic1 f42f659bf791365b
+241 lvdbl Form5.ListView1 0 b484d7541541a034
+242 click Form4.Button1 b484d7541541a034
+243 click Form4.Button1 b484d7541541a034
+244 click Form4.Button1 b484d7541541a034
+245 click Form4.Button1 b484d7541541a034
+246 click Form4.Button1 b484d7541541a034
+247 click Form4.Button1 b484d7541541a034
+248 click Form4.Button1 b484d7541541a034
+249 radio Form4.RadioGroup1 1 63f4b827eca42777
+250 click Form4.Button1 63c03a6dfc96a040
+251 click Form4.Button1 7289cb93d11cfe29
+252 click Form4.Button1 bdbbeca672f28bf2
+253 radio Form4.RadioGroup1 2 0712bfacbea99291
+254 menu Form4.Contents1 0712bfacbea99291
+255 menu Form4.RepeatMusic1 d0bc31106964735c
+256 radio Form4.RadioGroup1 1 aed50b19c3bde52d
+257 click Form4.Button1 aa72d9b779334978
+258 timers 39fe2b86d9052022
+259 click Form4.EndButton 95848a97ea8d89af
+260 menu Form4.PrimeCupLevel1001 8a63592903072a4d
+261 menu Form4.VeryEasyLevels2101 1317937dfcd732da
+262 lvdbl Form5.ListView1 0 f0afa115928ce139
+263 lvdbl Form5.ListView1 0 5b0ce598b86ec082
+264 lvdbl Form5.ListView1 0 5c26092872564ba9
+265 radio Form4.RadioGroup1 3 460add5929c658a8
+266 click Form4.Button1 60b3754bf1a25fb8
+267 click Form4.Button1 8a403e2a3d3638fc
+268 click Form4.Button1 5a2c4cd4037e9dda
+269 timers b5a2ef91407bc1e6
+270 timers b5a2ef91407bc1e6
+271 menu Form4.About1 b5a2ef91407bc1e6
+272 click Form4.Button1 55210e7213e06fc4
+273 click Form4.Button1 b578b0b3b826e2df
+274 menu Form4.StopMusic1 c6fa97f22750d66e
+275 click Form4.Button1 c17b882a3cacc03e
+276 click Form4.Button1 83438b27c12e45f6
+277 click Form4.EndButton 0db00d1cce062ad9
+278 menu Form4.Blue1 f775da599bb51a5a
+279 menu Form4.RepeatMusic1 484f9b832fa8b895
+280 menu Form4.StopMusic1 23bad7e4c7554007
+281 timers becac17d82229c4c
+282 menu Form4.RepeatMusic1 995a1902eb404083
+283 menu Form4.StopMusic1 fbadcb67547e512d
+284 menu Form4.About1 fbadcb67547e512d
+285 lvdbl Form5.ListView1 0 41c70c083ceae9b6
+286 timers 41c70c083ceae9b6
+287 timers 41c70c083ceae9b6
+288 menu Form4.StopMusic1 b6f07052ae6d0a20
+289 timers b6f07052ae6d0a20
+290 timers b6f07052ae6d0a20
+291 timers b6f07052ae6d0a20
+292 menu Form4.About1 b6f07052ae6d0a20
+293 lvdbl Form5.ListView1 0 cdd576ee33c0e217
+294 timers cdd576ee33c0e217
+295 menu Form4.RepeatMusic1 31c5caec788c3cd0
+296 menu Form4.StopMusic1 5baeb3311a215042
+297 menu Form4.Openfile1 5baeb3311a215042
+298 menu Form4.StopMusic1 86cc849e609c0dc1
+299 menu Form4.Openfile1 86cc849e609c0dc1
+300 lvdbl Form5.ListView1 0 a02097b193c5005c
+301 click Form4.Button1 a02097b193c5005c
+302 timers 888b1647b55e1c5d
+303 click Form4.Button1 888b1647b55e1c5d
+304 click Form4.Button1 888b1647b55e1c5d
+305 menu Form4.Contents1 888b1647b55e1c5d
+306 click Form4.Button1 888b1647b55e1c5d
+307 radio Form4.RadioGroup1 2 0169c1e7ee8a4ef1
+308 click Form4.Button1 2410ca14975d5f5b
+309 timers 2410ca14975d5f5b
+310 click Form4.Button1 9dec3142af56ddf9
+311 click Form4.Button1 abae7a299f8f627b
+312 click Form4.Button1 e8c4ed888412d0df
+313 click Form4.Button1 a72dc8c164d5624d
+314 timers a72dc8c164d5624d
+315 click Form4.Button1 87aa4ab94f4a903f
+316 click Form4.Button1 7afbfc2e59d7c29f
+317 click Form4.Button1 2412f4cc2821edba
+318 click Form4.Button1 ab904a44b23238f0
+319 click Form4.Button1 601982a03c2511e2
+320 menu Form4.Openfile1 601982a03c2511e2
+321 menu Form4.About1 601982a03c2511e2
+322 click Form4.Button1 fa946f45465d3cee
+323 click Form4.Button1 71e7d3b7b017eee8
+324 timers 818344465d75cecb
+325 menu Form4.Contents1 818344465d75cecb
+326 click Form4.EndButton 5630d21bcf5347f7
+327 menu Form4.GameCorner1 990fa0caa1108f27
+328 radio FormB.RadioGroup3 4 e402bccf765f127d
+329 menu Form4.ViewDEX1 70f6fa419d4ce39e
+330 menu Form4.Buy1 28deea70dd7acf18
+331 menu Form4.TypeComparisons1 ece7ec6fe7ef399c
+332 menu Form4.Emerald1 05016a56a01970f9
+333 lvdbl Form5.ListView1 0 978911115aa6bfe2
+334 timers 489ca5fe58ed0a27
+335 click Form4.Button1 489ca5fe58ed0a27
+336 click FormB.Button2 e7a3734193c0ccc4
+337 combo FormA.ComboBox2 35 0a925d9107e4c772
+338 timers 0a925d9107e4c772
+339 click Form4.Button1 0a925d9107e4c772
+340 click Form4.Button1 0a925d9107e4c772
+341 click Form4.Button1 0a925d9107e4c772
+342 click Form4.Button1 0a925d9107e4c772
+343 click Form4.Button1 0a925d9107e4c772
+344 click Form4.Button1 0a925d9107e4c772
+345 click Form4.Button1 0a925d9107e4c772
+346 click Form4.Button1 0a925d9107e4c772
+347 radio Form9.RadioGroup1 1 dad414dbdfb1e5bd
+348 click Form4.Button1 dad414dbdfb1e5bd
+349 timers dad414dbdfb1e5bd
+350 click Form8.Button1 b2114751579d1d84
+351 click Form4.Button1 b2114751579d1d84
+352 click Form4.Button1 b2114751579d1d84
+353 radio Form4.RadioGroup1 0 5cebc0efc0eba24e
+354 menu Form4.Openfile1 5cebc0efc0eba24e
+355 combo FormA.ComboBox1 271 6dd4e576376bc377
+356 click Form9.Button2 20fbe7ac4193d67c
+357 radio Form4.RadioGroup1 3 430442e51dbaefa9
+358 click Form4.Button1 5c9e9f71d3aa0e01
+359 click Form4.Button1 432e34e65d55abe8
+360 click Form4.Button1 6d8334450b7bc54e
+361 menu Form4.StopMusic1 bb31919384752438
+362 combo FormA.ComboBox2 43 eb13f07da13fb5db
+363 radio Form4.RadioGroup1 4 17d4f543e155ccb6
+364 menu Form4.RepeatMusic1 50d5464b7352fe75
+365 combo FormA.ComboBox2 98 d5e1abe6f4dda5aa
+366 menu Form4.Contents1 d5e1abe6f4dda5aa
+367 click FormA.Button1 0714b8851d5274b3
+368 menu Form4.About1 0714b8851d5274b3
+369 radio Form4.RadioGroup1 3 9ffb738419061856
+370 radio Form4.RadioGroup1 0 bd0987c4d0ebeebf
+371 radio Form4.RadioGroup1 4 0714b8851d5274b3
+372 radio Form4.RadioGroup1 2 8db94a51b43cd3c9
+373 radio Form4.RadioGroup1 2 8db94a51b43cd3c9
+374 timers 7387259d34262303
+375 menu Form4.RepeatMusic1 38dad7139ced0e74
+376 menu Form4.RepeatMusic1 7387259d34262303
+377 menu Form4.Openfile1 7387259d34262303
+378 radio Form4.RadioGroup1 3 383a6ea9d94ba62a
+379 timers 383a6ea9d94ba62a
+380 timers 383a6ea9d94ba62a
+381 timers 383a6ea9d94ba62a
+382 menu Form4.StopMusic1 ca0b57412e45e7f0
+383 timers ca0b57412e45e7f0
+384 radio Form4.RadioGroup1 1 198a4917cb76253e
+385 menu Form4.About1 198a4917cb76253e
+386 timers 198a4917cb76253e
+387 timers 198a4917cb76253e
+388 menu Form4.RepeatMusic1 b782466e775c0807
+389 radio Form4.RadioGroup1 2 97c6d8ee927b0986
+390 radio Form4.RadioGroup1 3 16dd6abdcd733a71
+391 menu Form4.RepeatMusic1 ca0b57412e45e7f0
+392 menu Form4.RepeatMusic1 16dd6abdcd733a71
+393 menu Form4.About1 16dd6abdcd733a71
+394 radio Form4.RadioGroup1 3 16dd6abdcd733a71
+395 menu Form4.StopMusic1 4256c87c4e2387d3
+396 menu Form4.About1 4256c87c4e2387d3
+397 timers 4256c87c4e2387d3
+398 radio Form4.RadioGroup1 1 dc170a0cdfaf8095
+399 menu Form4.Contents1 dc170a0cdfaf8095
+400 timers dc170a0cdfaf8095
+401 menu Form4.StopMusic1 b7aef145f9afd253
+402 menu Form4.RepeatMusic1 7d6c2703b602c52a
+403 menu Form4.StopMusic1 e669188e6ffaedab
+404 timers e669188e6ffaedab
+405 timers e669188e6ffaedab
+406 click Form4.EndButton 8b497ce90da4fe6e
+407 menu Form4.FindPKMN1 e61167cce99ff749
+408 menu Form4.RepeatMusic1 1fb2976b36746a58
+409 timers 1fb2976b36746a58
+410 lvdbl Form5.ListView1 0 c7d1ad18370b1e43
+411 menu Form4.Openfile1 c7d1ad18370b1e43
+412 lvdbl Form5.ListView1 0 41432803186cbcbf
+413 click Form4.Button1 41432803186cbcbf
+414 click Form4.Button1 41432803186cbcbf
+415 click Form4.Button1 41432803186cbcbf
+416 menu Form4.About1 41432803186cbcbf
+417 click Form4.Button1 41432803186cbcbf
+418 click Form4.Button1 41432803186cbcbf
+419 menu Form4.About1 41432803186cbcbf
+420 click Form4.Button1 41432803186cbcbf
+421 click Form4.Button1 41432803186cbcbf
+422 click Form4.Button1 41432803186cbcbf
+423 click Form4.Button1 41432803186cbcbf
+424 timers aa81d3efc0e1082f
+425 click Form4.Button1 aa81d3efc0e1082f
+426 radio Form4.RadioGroup1 4 c5de9d1c77172175
+427 click Form4.Button1 ea8550bc4dae296a
+428 menu Form4.RepeatMusic1 e507eaefc488fcbb
+429 timers e507eaefc488fcbb
+430 radio Form4.RadioGroup1 0 41f613439cb492d7
+431 radio Form4.RadioGroup1 1 b75517088687a374
+432 timers b75517088687a374
+433 timers b75517088687a374
+434 click Form4.EndButton 09f3363adff62909
+435 menu Form4.ProfElm1 38cd520cbafa42b6
+436 menu Form4.StopMusic1 adf6b6572c7c6320
+437 timers adf6b6572c7c6320
+438 timers adf6b6572c7c6320
+439 timers adf6b6572c7c6320
+440 timers adf6b6572c7c6320
+441 timers adf6b6572c7c6320
+442 lvdbl Form5.ListView1 0 ef084094d0da064f
+443 timers ef084094d0da064f
+444 menu Form4.Openfile1 ef084094d0da064f
+445 menu Form4.Openfile1 ef084094d0da064f
+446 menu Form4.StopMusic1 582dd1a24b92a5b1
+447 menu Form4.Openfile1 4beb35edd35d2c84
+448 menu Form4.About1 4beb35edd35d2c84
+449 menu Form4.RepeatMusic1 0d4efd5b75ce8de1
+450 timers 0d4efd5b75ce8de1
+451 menu Form4.RepeatMusic1 4beb35edd35d2c84
+452 menu Form4.Contents1 4beb35edd35d2c84
+453 menu Form4.Contents1 4beb35edd35d2c84
+454 timers 4beb35edd35d2c84
+455 menu Form4.StopMusic1 4953f2b92b146555
+456 lvdbl Form5.ListView1 0 28696da4dfcffa76
+457 lvdbl Form5.ListView1 0 7482150c1c3a366d
+458 timers 7482150c1c3a366d
+459 menu Form4.StopMusic1 f137f7093db382d2
+460 menu Form4.StopMusic1 4f1e20cc049d439c
+461 timers 4f1e20cc049d439c
+462 timers 4f1e20cc049d439c
+463 timers 4f1e20cc049d439c
+464 menu Form4.StopMusic1 53f23807852f18ae
+465 menu Form4.Contents1 53f23807852f18ae
+466 lvdbl Form5.ListView1 0 2b1bc83640085ae5
+467 timers 2b1bc83640085ae5
+468 timers 2b1bc83640085ae5
+469 menu Form4.Contents1 2b1bc83640085ae5
+470 menu Form4.StopMusic1 dcaa6682d1893dd7
+471 timers dcaa6682d1893dd7
+472 timers dcaa6682d1893dd7
+473 menu Form4.RepeatMusic1 067e0cdc774a4064
+474 menu Form4.StopMusic1 6be47778446e47ae
+475 menu Form4.Contents1 6be47778446e47ae
+476 lvdbl Form5.ListView1 0 d4fa4ed9c1a6c754
+477 menu Form4.StopMusic1 6ef30d5cdb8f164d
+478 click Form4.Button1 6ef30d5cdb8f164d
+479 click Form4.Button1 6ef30d5cdb8f164d
+480 radio Form4.RadioGroup1 1 c03098eaaf7ccdca
+481 menu Form4.About1 c03098eaaf7ccdca
+482 timers 15fa4aa09a9449ed
+483 timers 15fa4aa09a9449ed
+484 click Form4.Button1 82bbe701e9f30eb8
+485 menu Form4.StopMusic1 2d0a70fa03ff3bf0
+486 timers e9c3c320a094453c
+487 radio Form4.RadioGroup1 0 4bd41f4397e28c2b
+488 timers 4bd41f4397e28c2b
+489 click Form4.EndButton a9da0fcf710feb2f
+490 menu Form4.Red1 787d49492afa2c0d
+491 menu Form4.Openfile1 5f8dedf3b0de1208
+492 menu Form4.About1 5f8dedf3b0de1208
+493 menu Form4.StopMusic1 f811fb6c7cf59641
+494 timers f811fb6c7cf59641
+495 menu Form4.Openfile1 f811fb6c7cf59641
+496 menu Form4.Contents1 f811fb6c7cf59641
+497 menu Form4.Openfile1 f811fb6c7cf59641
+498 menu Form4.RepeatMusic1 f9245317a1c755ca
+499 menu Form4.About1 f9245317a1c755ca
+500 menu Form4.StopMusic1 eea92797e422aa08
+501 timers eea92797e422aa08
+502 menu Form4.Openfile1 eea92797e422aa08
+503 menu Form4.Contents1 eea92797e422aa08
+504 menu Form4.RepeatMusic1 205c69da35ec6fd7
+505 menu Form4.Openfile1 042162c729ed7a4f
+506 timers 042162c729ed7a4f
+507 timers 042162c729ed7a4f
+508 lvdbl Form5.ListView1 0 0adea91335e26afa
+509 timers 0adea91335e26afa
+510 menu Form4.RepeatMusic1 f7864e69492bae9b
+511 menu Form4.Contents1 f7864e69492bae9b
+512 menu Form4.Contents1 f7864e69492bae9b
+513 timers f7864e69492bae9b
+514 timers f7864e69492bae9b
+515 menu Form4.Openfile1 f7864e69492bae9b
+516 timers f7864e69492bae9b
+517 timers f7864e69492bae9b
+518 menu Form4.StopMusic1 aab8110241488b66
+519 menu Form4.About1 aab8110241488b66
+520 menu Form4.Contents1 aab8110241488b66
+521 menu Form4.StopMusic1 fa8bd67bab606554
+522 timers fa8bd67bab606554
+523 menu Form4.StopMusic1 cc8ba38b35c3698a
+524 timers cc8ba38b35c3698a
+525 menu Form4.StopMusic1 63c56cc37a6517c8
+526 timers 63c56cc37a6517c8
+527 menu Form4.StopMusic1 2a4834bbf31bcfb1
+528 menu Form4.About1 2a4834bbf31bcfb1
+529 lvdbl Form5.ListView1 0 619d111e7532b58a
+530 lvdbl Form5.ListView1 0 f08d390ae9a417c9
+531 timers f08d390ae9a417c9
+532 timers f08d390ae9a417c9
+533 lvdbl Form5.ListView1 0 b73d709aac8a07b2
+534 menu Form4.RepeatMusic1 4ab9cbb20af7d22d
+535 timers 4ab9cbb20af7d22d
+536 timers 4ab9cbb20af7d22d
+537 menu Form4.Openfile1 4ab9cbb20af7d22d
+538 menu Form4.Contents1 4ab9cbb20af7d22d
+539 menu Form4.About1 4ab9cbb20af7d22d
+540 timers 4ab9cbb20af7d22d
+541 menu Form4.Contents1 4ab9cbb20af7d22d
+542 timers 4ab9cbb20af7d22d
+543 menu Form4.RepeatMusic1 b73d709aac8a07b2
+544 menu Form4.About1 b73d709aac8a07b2
+545 menu Form4.RepeatMusic1 4ab9cbb20af7d22d
+546 menu Form4.About1 4ab9cbb20af7d22d
+547 menu Form4.About1 4ab9cbb20af7d22d
+548 lvdbl Form5.ListView1 0 8a2db30b4aec7286
+549 menu Form4.StopMusic1 7e64744f6527e5f0
+550 menu Form4.StopMusic1 ec938bb8102da42a
+551 menu Form4.About1 ec938bb8102da42a
+552 menu Form4.Openfile1 ec938bb8102da42a
+553 timers ec938bb8102da42a
+554 menu Form4.Openfile1 581d103e5ed43a7d
+555 timers 581d103e5ed43a7d
+556 timers 581d103e5ed43a7d
+557 menu Form4.StopMusic1 88b1adcc25a1043e
+558 timers 88b1adcc25a1043e
+559 menu Form4.About1 88b1adcc25a1043e
+560 menu Form4.Openfile1 88b1adcc25a1043e
+561 menu Form4.StopMusic1 e826fe7a8e9d4f98
+562 menu Form4.About1 e826fe7a8e9d4f98
+563 menu Form4.Openfile1 40547ff1b7f5d789
+564 menu Form4.RepeatMusic1 04c58d56c27e3c72
+565 menu Form4.StopMusic1 b76821c4b2710139
+566 menu Form4.Contents1 b76821c4b2710139
+567 menu Form4.StopMusic1 9b435e516e2ec93b
+568 menu Form4.RepeatMusic1 693ad576298154d2
+569 timers 693ad576298154d2
+570 timers 693ad576298154d2
+571 timers 693ad576298154d2
+572 lvdbl Form5.ListView1 0 eafd0371ba8a64ef
+573 click Form4.Button1 eafd0371ba8a64ef
+574 click Form4.Button1 eafd0371ba8a64ef
+575 click Form4.Button1 eafd0371ba8a64ef
+576 click Form4.Button1 eafd0371ba8a64ef
+577 click Form4.Button1 eafd0371ba8a64ef
+578 click Form4.Button1 eafd0371ba8a64ef
+579 click Form4.Button1 eafd0371ba8a64ef
+580 click Form4.Button1 eafd0371ba8a64ef
+581 click Form4.Button1 eafd0371ba8a64ef
+582 menu Form4.Contents1 eafd0371ba8a64ef
+583 click Form4.Button1 eafd0371ba8a64ef
+584 click Form4.Button1 eafd0371ba8a64ef
+585 click Form4.Button1 eafd0371ba8a64ef
+586 radio Form4.RadioGroup1 3 efb49565f72eb87c
+587 menu Form4.About1 efb49565f72eb87c
+588 timers a1780784f2cb7717
+589 menu Form4.Openfile1 a1780784f2cb7717
+590 click Form4.Button1 6c262fe30aaf8c86
+591 click Form4.Button1 e557d846136e54bd
+592 radio Form4.RadioGroup1 0 9ddfc0572c5b9806
+593 radio Form4.RadioGroup1 4 eb3bde86c6cd240a
+594 menu Form4.Openfile1 e5eae1185123c81b
+595 timers 61c38318941621d8
+596 timers 61c38318941621d8
+597 radio Form4.RadioGroup1 2 11cdf8b5cc86efea
+598 menu Form4.StopMusic1 956427f6da2a843a
+599 menu Form4.Openfile1 956427f6da2a843a
+600 menu Form4.RepeatMusic1 f8441d2e56c7a8dd
+601 click Form4.EndButton ee0fb5d9706aba3c
+602 timers f802b3abe2e90f94
+603 menu Form4.Crystal1 63ae01a06161f1e9
+604 timers 63ae01a06161f1e9
+605 timers 63ae01a06161f1e9
+606 menu Form4.About1 63ae01a06161f1e9
+607 timers 63ae01a06161f1e9
+608 lvdbl Form5.ListView1 0 78be18f8d0835d5d
+609 menu Form4.Openfile1 78be18f8d0835d5d
+610 timers 78be18f8d0835d5d
+611 menu Form4.StopMusic1 3009b5c57476e3ef
+612 timers 3009b5c57476e3ef
+613 menu Form4.About1 3009b5c57476e3ef
+614 timers 3009b5c57476e3ef
+615 timers 3009b5c57476e3ef
+616 timers 3009b5c57476e3ef
+617 lvdbl Form5.ListView1 0 51cd6b9e088ac7b3
+618 lvdbl Form5.ListView1 0 c19846474804fe47
+619 lvdbl Form5.ListView1 0 d4e008d369d28bf3
+620 click Form4.Button1 d4e008d369d28bf3
+621 radio Form4.RadioGroup1 1 eb866bddd4044620
+622 radio Form4.RadioGroup1 1 eb866bddd4044620
+623 click Form4.Button1 8f5b12847bfe4aa2
+624 timers 1d401c547f9df1cf
+625 click Form4.Button1 417662b44f7d30b9
+626 click Form4.Button1 b0a1719dafbb16f7
+627 menu Form4.StopMusic1 8441e3b280152039
+628 click Form4.Button1 d104c316f4690bf1
+629 click Form4.Button1 81061d363f699bb7
+630 click Form4.Button1 3647eeef876ee4c6
+631 click Form4.Button1 a48c26034798d4b5
+632 menu Form4.StopMusic1 870ffbb6ca347ea7
+633 click Form4.Button1 d729e32825bda15a
+634 click Form4.Button1 40f78ba56d2b7206
+635 timers 40f78ba56d2b7206
+636 click Form4.Button1 671a6e4331fccd91
+637 click Form4.Button1 136d36ddf85edb34
+638 radio Form4.RadioGroup1 4 f446d78aa01c2773
+639 click Form4.Button1 eeb249adeb556066
+640 click Form4.Button1 4483495e522c3935
+641 click Form4.Button1 3eedba35c2b5ee20
+642 click Form4.Button1 5bccd5875f512707
+643 click Form4.Button1 2bd75a61b0185282
+644 click Form4.Button1 848fc6f513afdee9
+645 click Form4.Button1 c6f176ade9e03f3c
+646 radio Form4.RadioGroup1 1 5bc76355e4d17e99
+647 timers 5bc76355e4d17e99
+648 click Form4.Button1 6ff81319db03efb1
+649 click Form4.Button1 3a65217b6fa76738
+650 timers 3a65217b6fa76738
+651 click Form4.Button1 01a20e9de91e26a8
+652 click Form4.EndButton d77be92156b516fb
+653 timers 97aedf9f5b49ae5e
+654 menu Form4.About1 97aedf9f5b49ae5e
+655 menu Form4.Buy1 d80effed9d04082c
+656 menu Form4.FindPKMN1 172f57306b52506a
+657 timers 172f57306b52506a
+658 click Form9.Button2 c0699acb2026d5f9
+659 menu Form4.Openfile1 c0699acb2026d5f9
+660 timers c0699acb2026d5f9
+661 menu Form4.Contents1 c0699acb2026d5f9
+662 timers c0699acb2026d5f9
+663 timers c0699acb2026d5f9
+664 lvdbl Form5.ListView1 0 bf5c0d0ba6d8f339
+665 menu Form4.Contents1 bf5c0d0ba6d8f339
+666 timers bf5c0d0ba6d8f339
+667 menu Form4.RepeatMusic1 1875556c5c9d7e3e
+668 lvdbl Form5.ListView1 0 216e387342f8f77e
+669 menu Form4.StopMusic1 1aa09f2d41942cb4
+670 menu Form4.StopMusic1 393a5e8ec5940aa3
+671 menu Form4.About1 393a5e8ec5940aa3
+672 menu Form4.About1 393a5e8ec5940aa3
+673 timers 393a5e8ec5940aa3
+674 timers 393a5e8ec5940aa3
+675 lvdbl Form5.ListView1 0 5281b31b9b4de4e3
+676 timers 5281b31b9b4de4e3
+677 menu Form4.RepeatMusic1 6659fe94bb74c6e0
+678 timers 6659fe94bb74c6e0
+679 menu Form4.StopMusic1 1293c73e5bc1a376
+680 lvdbl Form5.ListView1 0 2bfc8c3f4a2c41b6
+681 menu Form4.Contents1 2bfc8c3f4a2c41b6
+682 timers 2bfc8c3f4a2c41b6
+683 lvdbl Form5.ListView1 0 51b74692cce7faf6
+684 lvdbl Form5.ListView1 0 b1619e6a0166c7ff
+685 radio Form4.RadioGroup1 0 737e75b6a4c94153
+686 menu Form4.StopMusic1 7369f22aa3fada7d
+687 menu Form4.About1 7369f22aa3fada7d
+688 click Form4.Button1 f957e1ae8862d9b9
+689 radio Form4.RadioGroup1 2 de745537cd24dae3
+690 click Form4.Button1 4dac8a9883f3b7e5
+691 click Form4.Button1 9cc976556bbafe6f
+692 click Form4.Button1 19857fbc5d4f9bc3
+693 radio Form4.RadioGroup1 1 eb9f02d4e47bd2e0
+694 click Form4.Button1 2d24bef0518e3fd4
+695 click Form4.Button1 f574e75b10703283
+696 menu Form4.Openfile1 3bd27eddc5dd8864
+697 click Form4.Button1 1a7f4a258bc7d0aa
+698 click Form4.Button1 42dfe9b10ac34b4f
+699 timers d07423e1d2634ff4
+700 click Form4.Button1 f2348f8da783415c
+701 click Form4.Button1 32a9c70d5b551237
+702 click Form4.Button1 9d51ac446c977601
+703 click Form4.Button1 6bba7197bb853164
+704 radio Form4.RadioGroup1 2 5c2bc432903f0e97
+705 timers 5c2bc432903f0e97
+706 menu Form4.Openfile1 5c2bc432903f0e97
+707 click Form4.Button1 4c5e82d7ebb06325
+708 click Form4.EndButton 90c4a6a957c5ac30
+709 menu Form4.FindPKMN1 8b9a6daf6be3dae0
+710 timers 972def752f25fd3f
+711 timers 972def752f25fd3f
+712 lvdbl Form5.ListView1 0 83c7d1e33ee20611
+713 timers 83c7d1e33ee20611
+714 timers 83c7d1e33ee20611
+715 lvdbl Form5.ListView1 0 1ba04c14c1ba41b7
+716 menu Form4.RepeatMusic1 4d9777f58ed116d4
+717 lvdbl Form5.ListView1 0 bfec4a13c398534a
+718 menu Form4.StopMusic1 4a636eb09c079e69
+719 timers 4a636eb09c079e69
+720 lvdbl Form5.ListView1 0 df73dca581aec5f4
+721 click Form4.Button1 df73dca581aec5f4
+722 click Form4.Button1 df73dca581aec5f4
+723 click Form4.Button1 df73dca581aec5f4
+724 click Form4.Button1 df73dca581aec5f4
+725 menu Form4.About1 df73dca581aec5f4
+726 click Form4.Button1 df73dca581aec5f4
+727 radio Form4.RadioGroup1 2 1a6031ab81720502
+728 radio Form4.RadioGroup1 1 4ff2db21ba4cff1b
+729 menu Form4.Contents1 4ff2db21ba4cff1b
+730 click Form4.Button1 238c2a66007e77fd
+731 click Form4.Button1 7f80869166ad97b4
+732 menu Form4.Contents1 7f80869166ad97b4
+733 click Form4.Button1 5679f592e7355126
+734 radio Form4.RadioGroup1 0 dbd8a6a504c68447
+735 menu Form4.About1 dbd8a6a504c68447
+736 click Form4.Button1 d7f50505f89ece95
+737 click Form4.Button1 c34dd1d37c732982
+738 menu Form4.Contents1 c34dd1d37c732982
+739 menu Form4.StopMusic1 fbdd3b70375a2553
+740 menu Form4.RepeatMusic1 742258e43918eee0
+741 timers a9232a86c5d804ff
+742 radio Form4.RadioGroup1 3 e365740c84a1a4d8
+743 radio Form4.RadioGroup1 0 a9232a86c5d804ff
+744 radio Form4.RadioGroup1 0 a9232a86c5d804ff
+745 radio Form4.RadioGroup1 0 a9232a86c5d804ff
+746 timers a9232a86c5d804ff
+747 menu Form4.StopMusic1 b74da44d73e8ab6d
+748 radio Form4.RadioGroup1 3 0057e9af8ecbb0ee
+749 radio Form4.RadioGroup1 0 b74da44d73e8ab6d
+750 radio Form4.RadioGroup1 1 9ef819a1da495cf8
+751 click Form4.EndButton f786aa766bfcf7d4
+752 menu Form4.Buy1 24bc5aede0bde2b1
+753 menu Form4.ProfBirch1 4bb56d7daede6610
+754 radio Form9.RadioGroup1 0 40abb2252b8d045b
+755 timers 35aa90f73470ea71
+756 menu Form4.Contents1 35aa90f73470ea71
+757 radio Form9.RadioGroup1 1 cfa8c934a76eb899
+758 timers cfa8c934a76eb899
+759 radio Form9.RadioGroup1 3 be6cb70a9e760537
+760 menu Form4.RepeatMusic1 3938510493080bf2
+761 timers 3938510493080bf2
+762 timers 3938510493080bf2
+763 lvdbl Form5.ListView1 0 bcc1260cc6a4075b
+764 radio Form9.RadioGroup1 2 90c5219438334a88
+765 click Form4.Button1 90c5219438334a88
+766 timers cc0cd3c7a69e1135
+767 timers cc0cd3c7a69e1135
+768 click Form4.Button1 cc0cd3c7a69e1135
+769 click Form9.Button2 7b7f1a3fbb114950
+770 click Form4.Button1 7b7f1a3fbb114950
+771 radio Form4.RadioGroup1 0 411b7bea4b040404
+772 radio Form4.RadioGroup1 4 866714e3a71fb9f8
+773 click Form4.Button1 3461fc5c3c074975
+774 click Form4.Button1 e4b2f6090f407512
+775 click Form4.Button1 e6725a7e0adfbd5f
+776 menu Form4.StopMusic1 3abe7f857c69c101
+777 click Form4.Button1 7db30c636ed61d7e
+778 click Form4.Button1 a864d6e4c6c462bf
+779 click Form4.Button1 2a684fb61c301264
+780 click Form4.Button1 7b8d68eb60e65565
+781 click Form4.Button1 7c18c75d54cf02ba
+782 radio Form4.RadioGroup1 1 05ce38884fb3ab51
+783 click Form4.Button1 b06dda9b79fc0cc8
+784 menu Form4.About1 b06dda9b79fc0cc8
+785 click Form4.Button1 95ae76fd2072c769
+786 radio Form4.RadioGroup1 4 e26747409057b388
+787 timers 56f5dffb83cf7fa2
+788 click Form4.EndButton 40820dc541222df4
+789 menu Form4.Giovanni1 af81de2971d43cac
+790 menu Form4.Contents1 af81de2971d43cac
+791 timers af81de2971d43cac
+792 menu Form4.RepeatMusic1 0a346ae97d162317
+793 timers 0a346ae97d162317
+794 menu Form4.Openfile1 e47aa174353da412
+795 menu Form4.RepeatMusic1 22322d33424c48c7
+796 lvdbl Form5.ListView1 0 acdff1c1feb57090
+797 timers acdff1c1feb57090
+798 menu Form4.Openfile1 acdff1c1feb57090
+799 menu Form4.StopMusic1 b90cdb472bd37bf5
+800 timers b90cdb472bd37bf5
+801 lvdbl Form5.ListView1 0 0f293be7c896e5e0
+802 timers 0f293be7c896e5e0
+803 menu Form4.About1 0f293be7c896e5e0
+804 lvdbl Form5.ListView1 0 8082809d81a3a0c5
+805 menu Form4.About1 8082809d81a3a0c5
+806 menu Form4.Openfile1 8082809d81a3a0c5
+807 timers 8082809d81a3a0c5
+808 timers 8082809d81a3a0c5
+809 timers 8082809d81a3a0c5
+810 lvdbl Form5.ListView1 0 40b1fa304a6fff90
+811 menu Form4.About1 40b1fa304a6fff90
+812 timers 40b1fa304a6fff90
+813 timers 40b1fa304a6fff90
+814 menu Form4.RepeatMusic1 5f2312ce8933d5e3
+815 menu Form4.Contents1 5f2312ce8933d5e3
+816 timers 5f2312ce8933d5e3
+817 menu Form4.Openfile1 5f2312ce8933d5e3
+818 lvdbl Form5.ListView1 0 294c2859e4ea5f96
+819 timers 294c2859e4ea5f96
+820 timers 294c2859e4ea5f96
+821 timers 294c2859e4ea5f96
+822 menu Form4.Contents1 294c2859e4ea5f96
+823 lvdbl Form5.ListView1 0 a5c4c1d06216a2c3
+824 timers a5c4c1d06216a2c3
+825 menu Form4.StopMusic1 8491d37b76169188
+826 timers 8491d37b76169188
+827 timers 8491d37b76169188
+828 menu Form4.StopMusic1 fd269d6b32a2cd5e
+829 menu Form4.StopMusic1 a4f17ac343e4494c
+830 menu Form4.StopMusic1 66e3bb1e88512702
+831 menu Form4.About1 66e3bb1e88512702
+832 menu Form4.Contents1 66e3bb1e88512702
+833 menu Form4.StopMusic1 bfa6e1ee28bda590
+834 lvdbl Form5.ListView1 0 c0814c9a9cc74495
+835 timers c0814c9a9cc74495
+836 menu Form4.StopMusic1 47f1e8675f8f4c3c
+837 timers 47f1e8675f8f4c3c
+838 timers 47f1e8675f8f4c3c
+839 lvdbl Form5.ListView1 0 ee2774d751497569
+840 timers ee2774d751497569
+841 menu Form4.RepeatMusic1 bfaab2a62aef6ed2
+842 menu Form4.Contents1 bfaab2a62aef6ed2
+843 timers bfaab2a62aef6ed2
+844 timers bfaab2a62aef6ed2
+845 menu Form4.Contents1 bfaab2a62aef6ed2
+846 menu Form4.About1 bfaab2a62aef6ed2
+847 timers bfaab2a62aef6ed2
+848 menu Form4.Openfile1 bfaab2a62aef6ed2
+849 timers bfaab2a62aef6ed2
+850 timers bfaab2a62aef6ed2
+851 menu Form4.StopMusic1 1d90dc68f1d92f9c
+852 timers 1d90dc68f1d92f9c
+853 lvdbl Form5.ListView1 0 5e2e826962567285
+854 timers 5e2e826962567285
+855 lvdbl Form5.ListView1 0 e5a110dffb12d51a
+856 click Form4.Button1 e5a110dffb12d51a
+857 menu Form4.RepeatMusic1 ad580c361b6d063f
+858 menu Form4.StopMusic1 da14dd57e2f06961
+859 click Form4.Button1 da14dd57e2f06961
+860 radio Form4.RadioGroup1 1 7d319cfaa08e41f0
+861 click Form4.Button1 e76d7999ab44e15a
+862 radio Form4.RadioGroup1 1 e76d7999ab44e15a
+863 click Form4.EndButton 436763a01ce18583
+864 menu Form4.James1 c5cee212b96a4346
+865 timers e5fe22d32187a2c9
+866 lvdbl Form5.ListView1 0 5ca249695143afb6
+867 menu Form4.RepeatMusic1 dafd0381b8e7f44b
+868 click Form4.Button1 dafd0381b8e7f44b
+869 click Form4.Button1 dafd0381b8e7f44b
+870 menu Form4.Openfile1 dafd0381b8e7f44b
+871 click Form4.Button1 dafd0381b8e7f44b
+872 click Form4.Button1 dafd0381b8e7f44b
+873 click Form4.Button1 dafd0381b8e7f44b
+874 click Form4.Button1 dafd0381b8e7f44b
+875 radio Form4.RadioGroup1 1 498f57223d63d93e
+876 click Form4.Button1 14cc5f7ed47f178e
+877 click Form4.Button1 31156492ca3ff0bf
+878 menu Form4.RepeatMusic1 73f1bcb862fe28d0
+879 click Form4.EndButton 627424701587aff1
+880 timers b7752d541441266f
+881 menu Form4.James1 10e6210e7690d3d6
+882 menu Form4.RepeatMusic1 b2524ed1b76de95b
+883 timers b2524ed1b76de95b
+884 timers b2524ed1b76de95b
+885 timers b2524ed1b76de95b
+886 timers b2524ed1b76de95b
+887 menu Form4.RepeatMusic1 10e6210e7690d3d6
+888 lvdbl Form5.ListView1 0 61e67ab960152a2f
+889 click Form4.Button1 61e67ab960152a2f
+890 click Form4.Button1 61e67ab960152a2f
+891 click Form4.Button1 61e67ab960152a2f
+892 radio Form4.RadioGroup1 1 b82dcc4ef93e361e
+893 click Form4.Button1 e2a5de513e959778
+894 click Form4.Button1 35864a700d8e9e0e
+895 timers c03cbc2e6656f8a9
+896 menu Form4.About1 c03cbc2e6656f8a9
+897 timers c03cbc2e6656f8a9
+898 radio Form4.RadioGroup1 1 c03cbc2e6656f8a9
+899 radio Form4.RadioGroup1 3 349904f6d39371e3
+900 menu Form4.RepeatMusic1 8911a300a9601410
+901 radio Form4.RadioGroup1 1 78ddf5950686ebc6
+902 radio Form4.RadioGroup1 1 78ddf5950686ebc6
+903 menu Form4.StopMusic1 fe8e04cefdcb3f30
+904 menu Form4.Contents1 fe8e04cefdcb3f30
+905 menu Form4.Contents1 fe8e04cefdcb3f30
+906 radio Form4.RadioGroup1 1 fe8e04cefdcb3f30
+907 timers fe8e04cefdcb3f30
+908 radio Form4.RadioGroup1 0 7fab0a86f7c43cad
+909 click Form4.EndButton 5feed3f4bedd8af5
+910 menu Form4.HardLevels50701 668b524aafc2aa9f
+911 menu Form4.Red1 ca0c6c0417a37428
+912 menu Form4.About1 ca0c6c0417a37428
+913 timers ca0c6c0417a37428
+914 menu Form4.RepeatMusic1 2b9e66276610779d
+915 menu Form4.StopMusic1 e76e251ef0fcc86b
+916 menu Form4.StopMusic1 84cfb7e4981b9dbc
+917 timers 84cfb7e4981b9dbc
+918 timers 84cfb7e4981b9dbc
+919 timers 84cfb7e4981b9dbc
+920 lvdbl Form5.ListView1 0 c4a9e761e633f371
+921 click Form4.Button1 c4a9e761e633f371
+922 click Form4.Button1 c4a9e761e633f371
+923 timers a0843dfe38807b60
+924 click Form4.Button1 a0843dfe38807b60
+925 menu Form4.StopMusic1 4cbe06a7d8cd57f6
+926 timers 4cbe06a7d8cd57f6
+927 menu Form4.Openfile1 4cbe06a7d8cd57f6
+928 click Form4.Button1 4cbe06a7d8cd57f6
+929 radio Form4.RadioGroup1 2 8be642ae25272a9a
+930 timers 8be642ae25272a9a
+931 click Form4.Button1 e44d20db58f6e5dc
+932 menu Form4.About1 e44d20db58f6e5dc
+933 click Form4.Button1 0c355db311c31707
+934 timers 0c355db311c31707
+935 click Form4.Button1 632df0bbc7df9d0b
+936 click Form4.Button1 a063593e877a9ad0
+937 menu Form4.About1 a063593e877a9ad0
+938 menu Form4.RepeatMusic1 d46c37bd5d3c0b3d
+939 click Form4.EndButton b976d808e8a8b7aa
+940 menu Form4.IntermediateLevels30501 25332ea29e282458
+941 timers bf439edd9380fb14
+942 menu Form4.Gold1 11f75ceffb5d8a40
+943 lvdbl Form5.ListView1 0 77a53399cc1d819a
+944 timers 77a53399cc1d819a
+945 menu Form4.RepeatMusic1 0c721793fe95ca8d
+946 lvdbl Form5.ListView1 0 f7eeebb312068fd5
+947 menu Form4.RepeatMusic1 f3507f5aa37d7674
+948 timers f3507f5aa37d7674
+949 timers f3507f5aa37d7674
+950 menu Form4.RepeatMusic1 f7eeebb312068fd5
+951 timers f7eeebb312068fd5
+952 timers f7eeebb312068fd5
+953 menu Form4.About1 f7eeebb312068fd5
+954 timers f7eeebb312068fd5
+955 menu Form4.About1 f7eeebb312068fd5
+956 lvdbl Form5.ListView1 0 3f1109d3a33c04ed
+957 lvdbl Form5.ListView1 0 e28be1e014889248
+958 timers 788f9d262a8603a9
+959 menu Form4.Openfile1 788f9d262a8603a9
+960 click Form4.Button1 788f9d262a8603a9
+961 click Form4.Button1 788f9d262a8603a9
+962 menu Form4.StopMusic1 e201816cca401d27
+963 click Form4.Button1 e201816cca401d27
+964 click Form4.Button1 e201816cca401d27
+965 click Form4.Button1 e201816cca401d27
+966 click Form4.Button1 e201816cca401d27
+967 click Form4.Button1 e201816cca401d27
+968 click Form4.Button1 e201816cca401d27
+969 click Form4.Button1 e201816cca401d27
+970 click Form4.Button1 e201816cca401d27
+971 click Form4.Button1 e201816cca401d27
+972 radio Form4.RadioGroup1 2 e8b48e4e6da71d65
+973 click Form4.Button1 1da231d40fc19d36
+974 click Form4.Button1 bf4b157c4ffff772
+975 menu Form4.StopMusic1 14ffad476ad2803c
+976 click Form4.Button1 2a4cb32387ae8917
+977 radio Form4.RadioGroup1 1 f35bc4014f1582c4
+978 radio Form4.RadioGroup1 0 d09dc6da0af638e9
+979 radio Form4.RadioGroup1 1 f35bc4014f1582c4
+980 click Form4.EndButton 1cdf183620e3bfc9
+981 menu Form4.Evolve1 2edc80ec77289a8f
+982 lvdbl Form5.ListView1 0 fe0376874a890e4a
+983 menu Form4.TypeComparisons1 81797958ff93bc05
+984 menu Form4.Emerald1 fcd58e31b4189e1f
+985 timers 975d10fba7db142f
+986 menu Form4.Contents1 975d10fba7db142f
+987 menu Form4.About1 975d10fba7db142f
+988 lvdbl Form5.ListView1 0 d204bc8160302caf
+989 click Form4.Button1 d204bc8160302caf
+990 menu Form4.Openfile1 d204bc8160302caf
+991 timers f29e1ed4f9b7d276
+992 click Form4.Button1 f29e1ed4f9b7d276
+993 click Form4.Button1 f29e1ed4f9b7d276
+994 click Form4.Button1 f29e1ed4f9b7d276
+995 click Form4.Button1 f29e1ed4f9b7d276
+996 click Form4.Button1 f29e1ed4f9b7d276
+997 click Form4.Button1 f29e1ed4f9b7d276
+998 click Form4.Button1 f29e1ed4f9b7d276
+999 click Form4.Button1 f29e1ed4f9b7d276
+1000 click Form4.Button1 f29e1ed4f9b7d276
+1001 click Form4.Button1 f29e1ed4f9b7d276
+1002 radio Form4.RadioGroup1 2 444064fff3f1d222
+1003 click Form4.Button1 1fca6ed12efdd79a
+1004 click Form4.Button1 fa7f4f8277c9de4a
+1005 click Form4.Button1 bc7fe7f3cb691e53
+1006 radio Form4.RadioGroup1 2 bc7fe7f3cb691e53
+1007 click Form4.Button1 21edde3d98cf6e6e
+1008 timers abf68a9f42864925
+1009 radio Form4.RadioGroup1 2 abf68a9f42864925
+1010 timers abf68a9f42864925
+1011 combo FormA.ComboBox1 151 b8e09f0265f19f51
+1012 radio Form4.RadioGroup1 2 b8e09f0265f19f51
+1013 timers b8e09f0265f19f51
+1014 menu Form4.Openfile1 b8e09f0265f19f51
+1015 timers b8e09f0265f19f51
+1016 click Form4.EndButton 8462eea59e98b76f
+1017 menu Form4.Contents1 8462eea59e98b76f
+1018 menu Form4.EasyLevels10301 c4b6b489151acec1
+1019 menu Form4.Crystal1 c57acb60cb7ae7eb
+1020 timers c57acb60cb7ae7eb
+1021 menu Form4.Openfile1 c57acb60cb7ae7eb
+1022 menu Form4.StopMusic1 09ab0c69408e971d
+1023 timers 09ab0c69408e971d
+1024 menu Form4.StopMusic1 05056d495dbe52b4
+1025 click FormA.Button1 c2608d996dc29245
+1026 lvdbl Form5.ListView1 0 cf532dc15354ad13
+1027 timers cf532dc15354ad13
+1028 timers cf532dc15354ad13
+1029 menu Form4.Contents1 cf532dc15354ad13
+1030 timers cf532dc15354ad13
+1031 timers cf532dc15354ad13
+1032 menu Form4.Contents1 cf532dc15354ad13
+1033 timers cf532dc15354ad13
+1034 timers cf532dc15354ad13
+1035 lvdbl Form5.ListView1 0 0b148088aea7bb99
+1036 menu Form4.About1 0b148088aea7bb99
+1037 menu Form4.StopMusic1 c1fc09c40a976a9b
+1038 menu Form4.Contents1 c1fc09c40a976a9b
+1039 menu Form4.StopMusic1 efbb7cd9aba55265
+1040 lvdbl Form5.ListView1 0 e0440258b8bb354b
+1041 timers e0440258b8bb354b
+1042 timers e0440258b8bb354b
+1043 menu Form4.Openfile1 2374bb18d37bcc2e
+1044 lvdbl Form5.ListView1 0 16bc9420c3f0f588
+1045 menu Form4.Openfile1 16bc9420c3f0f588
+1046 timers 16bc9420c3f0f588
+1047 menu Form4.About1 16bc9420c3f0f588
+1048 timers 16bc9420c3f0f588
+1049 timers 16bc9420c3f0f588
+1050 timers 16bc9420c3f0f588
+1051 timers 16bc9420c3f0f588
+1052 lvdbl Form5.ListView1 0 8ab0234dda791ee2
+1053 menu Form4.Openfile1 8ab0234dda791ee2
+1054 timers 8ab0234dda791ee2
+1055 timers 8ab0234dda791ee2
+1056 menu Form4.RepeatMusic1 0fe94cf901350675
+1057 menu Form4.Contents1 0fe94cf901350675
+1058 menu Form4.RepeatMusic1 8ab0234dda791ee2
+1059 menu Form4.StopMusic1 77d4532cccae2e43
+1060 menu Form4.Openfile1 b39ce6c8143b1a93
+1061 menu Form4.RepeatMusic1 9b586e059b099b30
+1062 menu Form4.About1 9b586e059b099b30
+1063 menu Form4.Openfile1 9b586e059b099b30
+1064 menu Form4.About1 9b586e059b099b30
+1065 menu Form4.About1 9b586e059b099b30
+1066 menu Form4.RepeatMusic1 b39ce6c8143b1a93
+1067 menu Form4.RepeatMusic1 9b586e059b099b30
+1068 timers 9b586e059b099b30
+1069 timers 9b586e059b099b30
+1070 lvdbl Form5.ListView1 0 89e5608eb31c8608
+1071 menu Form4.Contents1 89e5608eb31c8608
+1072 menu Form4.About1 89e5608eb31c8608
+1073 timers 89e5608eb31c8608
+1074 timers 89e5608eb31c8608
+1075 menu Form4.Openfile1 89e5608eb31c8608
+1076 timers 89e5608eb31c8608
+1077 timers 89e5608eb31c8608
+1078 lvdbl Form5.ListView1 0 fb1cc9ab59a7b390
+1079 lvdbl Form5.ListView1 0 53b873eb9e4c1d6a
+1080 click Form4.Button1 53b873eb9e4c1d6a
+1081 radio Form4.RadioGroup1 2 5882420f2447f024
+1082 radio Form4.RadioGroup1 4 8b496caa4452a486
+1083 click Form4.Button1 729ccedcc6ffad21
+1084 click Form4.Button1 e3213044dc6d0794
+1085 click Form4.Button1 8e09a3614aa184f7
+1086 click Form4.Button1 2f7132f3e9ce26ea
+1087 click Form4.Button1 702badd0ba6ec6cd
+1088 click Form4.Button1 eeb1177718ac8a98
+1089 click Form4.Button1 8a67ac5a76735783
+1090 click Form4.Button1 add4349ebb6aa0be
+1091 click Form4.Button1 c15edfd6cfb5e679
+1092 click Form4.Button1 2aa2ef296c85b98c
+1093 menu Form4.RepeatMusic1 43dc9ad044c03bbf
+1094 radio Form4.RadioGroup1 2 28b33a259367f3fd
+1095 click Form4.Button1 69ae14c3daee7475
+1096 click Form4.Button1 dfd9584929363f3b
+1097 click Form4.Button1 762873fcd8317fb3
+1098 click Form4.Button1 89f5f012c85dfb61
+1099 click Form4.Button1 a4bb79e1aa4115f3
+1100 click Form4.Button1 d77464509546894b
+1101 click Form4.Button1 1849a682f2628646
+1102 click Form4.Button1 8eb1a5d9cf1df40e
+1103 click Form4.Button1 3ad0404794aa9058
+1104 timers dee70fc663df6923
+1105 click Form4.Button1 6f5dd54eb465e5b0
+1106 click Form4.Button1 0f0896de3551d25b
+1107 click Form4.Button1 1115f80fd48cfb97
+1108 click Form4.Button1 a816efbf500a6a54
+1109 menu Form4.RepeatMusic1 4d9a10269d91d761
+1110 click Form4.Button1 b27ade07d09de518
+1111 click Form4.EndButton b18fc1829ca8af8e
+1112 menu Form4.ProfOak1 b8de45ab60d6b111
+1113 menu Form4.About1 b8de45ab60d6b111
+1114 menu Form4.Contents1 b8de45ab60d6b111
+1115 timers 563d7ee07e832ae7
+1116 menu Form4.About1 563d7ee07e832ae7
+1117 lvdbl Form5.ListView1 0 6028a259997805c5
+1118 click Form4.Button1 6028a259997805c5
+1119 click Form4.Button1 6028a259997805c5
+1120 click Form4.Button1 6028a259997805c5
+1121 click Form4.Button1 6028a259997805c5
+1122 click Form4.Button1 6028a259997805c5
+1123 click Form4.Button1 6028a259997805c5
+1124 click Form4.Button1 6028a259997805c5
+1125 timers 6b8b4ac4ace5fc26
+1126 click Form4.Button1 6b8b4ac4ace5fc26
+1127 menu Form4.Openfile1 6b8b4ac4ace5fc26
+1128 click Form4.Button1 6b8b4ac4ace5fc26
+1129 click Form4.Button1 6b8b4ac4ace5fc26
+1130 click Form4.Button1 6b8b4ac4ace5fc26
+1131 click Form4.Button1 6b8b4ac4ace5fc26
+1132 click Form4.Button1 6b8b4ac4ace5fc26
+1133 click Form4.Button1 6b8b4ac4ace5fc26
+1134 timers 6b8b4ac4ace5fc26
+1135 timers 6b8b4ac4ace5fc26
+1136 click Form4.Button1 6b8b4ac4ace5fc26
+1137 click Form4.Button1 6b8b4ac4ace5fc26
+1138 click Form4.Button1 6b8b4ac4ace5fc26
+1139 click Form4.Button1 6b8b4ac4ace5fc26
+1140 menu Form4.RepeatMusic1 e3e3136ce6fb7e91
+1141 click Form4.Button1 e3e3136ce6fb7e91
+1142 radio Form4.RadioGroup1 4 3c56a9ad1f1739e3
+1143 click Form4.Button1 a2fc3e986c870d88
+1144 click Form4.Button1 5420db86eed47991
+1145 click Form4.Button1 048943ae7d1bd746
+1146 menu Form4.RepeatMusic1 07a5f103b0c2c187
+1147 click Form4.Button1 69813b02e083bb04
+1148 radio Form4.RadioGroup1 3 5c691b7c67ccae8f
+1149 radio Form4.RadioGroup1 2 2bb8acefff040306
+1150 menu Form4.StopMusic1 a6c0ee66885a973d
+1151 menu Form4.Contents1 a6c0ee66885a973d
+1152 menu Form4.RepeatMusic1 2f5b4660e5eaa9c0
+1153 click Form4.Button1 591d4487a397731e
+1154 radio Form4.RadioGroup1 2 591d4487a397731e
+1155 menu Form4.Openfile1 591d4487a397731e
+1156 menu Form4.Openfile1 591d4487a397731e
+1157 menu Form4.Contents1 591d4487a397731e
+1158 radio Form4.RadioGroup1 2 591d4487a397731e
+1159 menu Form4.StopMusic1 a942c9b66ba45e0c
+1160 radio Form4.RadioGroup1 1 138212942441cc11
+1161 radio Form4.RadioGroup1 2 a942c9b66ba45e0c
+1162 menu Form4.RepeatMusic1 bc5ddbb0c8757749
+1163 menu Form4.StopMusic1 7651bba0fa77870b
+1164 timers 6cc4110e11d12988
+1165 click Form4.EndButton 5c70c379058d8ce2
+1166 menu Form4.Emerald1 b48387ba89becacb
+1167 menu Form4.StopMusic1 0ba342dc83d9e7fd
+1168 timers 0ba342dc83d9e7fd
+1169 timers 0ba342dc83d9e7fd
+1170 menu Form4.RepeatMusic1 6df30f0f08bf3afc
+1171 lvdbl Form5.ListView1 0 a405c5e082fd6b1e
+1172 timers a405c5e082fd6b1e
+1173 menu Form4.Openfile1 a405c5e082fd6b1e
+1174 menu Form4.About1 a405c5e082fd6b1e
+1175 timers a405c5e082fd6b1e
+1176 timers a405c5e082fd6b1e
+1177 lvdbl Form5.ListView1 0 231433c15fab191e
+1178 timers 142f20d667f03adb
+1179 click Form4.Button1 142f20d667f03adb
+1180 click Form4.Button1 142f20d667f03adb
+1181 menu Form4.StopMusic1 e5f6512be71860da
+1182 click Form4.Button1 e5f6512be71860da
+1183 click Form4.Button1 e5f6512be71860da
+1184 radio Form4.RadioGroup1 3 6dd7f59dad94a04d
+1185 click Form4.Button1 dee9e1858ba79199
+1186 menu Form4.RepeatMusic1 bb77ee5fadc2752d
+1187 menu Form4.About1 bb77ee5fadc2752d
+1188 timers 345779b042e79ff7
+1189 radio Form4.RadioGroup1 3 345779b042e79ff7
+1190 menu Form4.Contents1 345779b042e79ff7
+1191 menu Form4.Openfile1 345779b042e79ff7
+1192 click Form4.EndButton 3410f59d6dd3b702
+1193 menu Form4.Red1 0ce84be79094bdef
+1194 menu Form4.RepeatMusic1 13ae2e244407d262
+1195 timers 13ae2e244407d262
+1196 menu Form4.About1 13ae2e244407d262
+1197 timers 13ae2e244407d262
+1198 menu Form4.StopMusic1 7e98b57d88eeefac
+1199 lvdbl Form5.ListView1 0 362d90dcbd6e6264
+1200 menu Form4.About1 362d90dcbd6e6264
+1201 menu Form4.StopMusic1 86c8aa5cfb9dd1f6
+1202 timers 86c8aa5cfb9dd1f6
+1203 timers 86c8aa5cfb9dd1f6
+1204 menu Form4.Openfile1 2c8b1ad34cb610c5
+1205 menu Form4.Contents1 2c8b1ad34cb610c5
+1206 timers 2c8b1ad34cb610c5
+1207 lvdbl Form5.ListView1 0 19a326392473512d
+1208 menu Form4.Contents1 19a326392473512d
+1209 timers 19a326392473512d
+1210 menu Form4.Contents1 19a326392473512d
+1211 lvdbl Form5.ListView1 0 3821e13d724a60c5
+1212 lvdbl Form5.ListView1 0 1f8a8e156839419b
+1213 timers d425a24682c048b8
+1214 click Form4.Button1 d425a24682c048b8
+1215 click Form4.Button1 d425a24682c048b8
+1216 click Form4.Button1 d425a24682c048b8
+1217 radio Form4.RadioGroup1 2 c5e134bc5d082ede
+1218 menu Form4.StopMusic1 498e57e80bd208bb
+1219 click Form4.Button1 6eb5d7bed8f8712f
+1220 click Form4.Button1 29bb6b9b3baa2b12
+1221 timers 29bb6b9b3baa2b12
+1222 click Form4.Button1 e62e2593284c1560
+1223 click Form4.Button1 00a2892256875180
+1224 menu Form4.RepeatMusic1 0b22ef815d4d981d
+1225 menu Form4.Openfile1 0b22ef815d4d981d
+1226 menu Form4.About1 0b22ef815d4d981d
+1227 click Form4.EndButton ba7453e34f8bd72e
+1228 menu Form4.Buy1 037e1eb6f3b0a259
+1229 menu Form4.ProfBirch1 e6d20ed99ee07c14
+1230 click Form9.Button2 51aa00b0d06a2ecb
+1231 menu Form4.About1 51aa00b0d06a2ecb
+1232 menu Form4.Openfile1 51aa00b0d06a2ecb
+1233 lvdbl Form5.ListView1 0 61b2de6fba94b696
+1234 timers 575a70f8f109b94d
+1235 menu Form4.StopMusic1 f2478556951ca471
+1236 lvdbl Form5.ListView1 0 a8ad3f5639420760
+1237 lvdbl Form5.ListView1 0 c200923ad47e92b1
+1238 timers c200923ad47e92b1
+1239 menu Form4.StopMusic1 1f6b1a4b0d5e0613
+1240 lvdbl Form5.ListView1 0 5947470162924936
+1241 timers 5947470162924936
+1242 timers 5947470162924936
+1243 lvdbl Form5.ListView1 0 46d5ffbdc0b3b253
+1244 lvdbl Form5.ListView1 0 ab75204dcb977178
+1245 click Form4.Button1 ab75204dcb977178
+1246 click Form4.Button1 ab75204dcb977178
+1247 click Form4.Button1 ab75204dcb977178
+1248 menu Form4.Openfile1 ab75204dcb977178
+1249 click Form4.Button1 ab75204dcb977178
+1250 radio Form4.RadioGroup1 0 36d4b2b418273316
+1251 click Form4.Button1 a007cfe0109cb7e0
+1252 radio Form4.RadioGroup1 4 90a0253720b21adc
+1253 timers c092165ba91d023d
+1254 click Form4.Button1 05c855b5337de926
+1255 menu Form4.Openfile1 05c855b5337de926
+1256 click Form4.Button1 5c1795737ae4444b
+1257 click Form4.Button1 c9823dde4018ff0c
+1258 click Form4.Button1 cb9fd2b1fe0af021
+1259 click Form4.Button1 8bc00582513ecee2
+1260 click Form4.Button1 5dbb8c9338e13b5f
+1261 timers 5dbb8c9338e13b5f
+1262 radio Form4.RadioGroup1 0 380f650b1208bf7b
+1263 click Form4.Button1 8e6ade8c3f7113b3
+1264 click Form4.EndButton 3274714f436797b3
+1265 menu Form4.Blue1 c7849547b56b2ef0
+1266 lvdbl Form5.ListView1 0 55f320a5651f5e83
+1267 menu Form4.RepeatMusic1 a48d229caf57e1c4
+1268 click Form4.Button1 a48d229caf57e1c4
+1269 radio Form4.RadioGroup1 4 cd1767d668ea8536
+1270 click Form4.Button1 89312a6ef6726bcd
+1271 click Form4.Button1 943f135dedd26254
+1272 menu Form4.About1 943f135dedd26254
+1273 click Form4.Button1 1b23a2e08e84de1b
+1274 radio Form4.RadioGroup1 4 1b23a2e08e84de1b
+1275 radio Form4.RadioGroup1 1 d6b00f79c5279ea6
+1276 click Form4.Button1 d5291452587aed59
+1277 radio Form4.RadioGroup1 1 d5291452587aed59
+1278 click Form4.Button1 d11a3b45c5385081
+1279 click Form4.Button1 9d8d5b3748469ee8
+1280 timers dc84a93b9b0c506f
+1281 click Form4.Button1 22e23c757ad45eb9
+1282 timers 22e23c757ad45eb9
+1283 click Form4.Button1 3aaef4c337622fee
+1284 click Form4.Button1 bdde683a744b1be9
+1285 menu Form4.RepeatMusic1 b4a659ec49dcf3c4
+1286 click Form4.Button1 27cd0d98ccef62a5
+1287 radio Form4.RadioGroup1 4 3f9626f38a910864
+1288 click Form4.Button1 d6b5d41c14783717
+1289 timers d6b5d41c14783717
+1290 click Form4.Button1 45dcf36f684fb33e
+1291 click Form4.Button1 c6136e7529f1c5c9
+1292 click Form4.Button1 fed2e81128ec7990
+1293 click Form4.Button1 9b06df7d31bfa1eb
+1294 click Form4.Button1 f3de8b38cf4612ea
+1295 click Form4.Button1 d8f34a595380a23d
+1296 menu Form4.Contents1 d8f34a595380a23d
+1297 click Form4.Button1 be9a06ad216c0a2c
+1298 click Form4.Button1 a4e6a428b132b6bf
+1299 click Form4.Button1 6ce7851d3b46a6a6
+1300 click Form4.Button1 f092a5a71e2ad611
+1301 click Form4.Button1 6847c1c3ba5be1f8
+1302 click Form4.Button1 986374e7010622d3
+1303 click Form4.Button1 8b914c75554ab932
+1304 timers 8b914c75554ab932
+1305 click Form4.Button1 5f82b686202cea85
+1306 click Form4.Button1 747ae9a904b9d194
+1307 click Form4.Button1 1924c77a33d57d87
+1308 click Form4.Button1 0633ebae958dd36e
+1309 click Form4.Button1 d9c8f50ba622b9b9
+1310 click Form4.Button1 1a3549f095c9ee40
+1311 click Form4.Button1 39fa33046d03a05b
+1312 click Form4.Button1 d6586fafa1df7f1a
+1313 click Form4.Button1 856a3bd5726f7b6d
+1314 click Form4.Button1 c3948327bf0e941c
+1315 click Form4.Button1 451cad1fae7ccf6f
+1316 click Form4.Button1 ac9b6b003c0860d6
+1317 timers ac9b6b003c0860d6
+1318 timers ac9b6b003c0860d6
+1319 click Form4.Button1 9d84ce96f5c21581
+1320 menu Form4.Openfile1 9d84ce96f5c21581
+1321 click Form4.Button1 3fe7552bbc20cb68
+1322 click Form4.Button1 a45862d8cadd40c3
+1323 click Form4.Button1 ba647c948ed6e6e2
+1324 click Form4.Button1 7c1d9917bf758a35
+1325 click Form4.Button1 9b3f24bdc21b3c04
+1326 click Form4.Button1 b6cd300cec0a52b7
+1327 click Form4.Button1 4ffb279d7af3a8de
+1328 click Form4.Button1 63db2a77499733e9
+1329 click Form4.Button1 319ccacd04bb3730
+1330 click Form4.Button1 6ad567011365970b
+1331 radio Form4.RadioGroup1 3 2d22979d4ac2b8ee
+1332 click Form4.Button1 c650dfcfa2faadfe
+1333 click Form4.Button1 9578f5c8a8754cfc
+1334 click Form4.Button1 9919b81a703cc97b
+1335 click Form4.Button1 d89051d7aad8d996
+1336 radio Form4.RadioGroup1 0 414cbd7d817a9a59
+1337 menu Form4.StopMusic1 e7b9fc40abd77017
+1338 click Form4.Button1 a981873770b9fe1d
+1339 menu Form4.Contents1 a981873770b9fe1d
+1340 timers 6d6a495cd381f5d1
+1341 radio Form4.RadioGroup1 2 93b888250d1b2413
+1342 radio Form4.RadioGroup1 0 6d6a495cd381f5d1
+1343 click Form4.EndButton daef4ff8668d4bc6
+1344 menu Form4.James1 6ff23c55cc135c4a
+1345 menu Form4.Contents1 6ff23c55cc135c4a
+1346 menu Form4.RepeatMusic1 2119abc33609de2b
+1347 timers cc9e4a92c48e7997
+1348 lvdbl Form5.ListView1 0 d03fad78686012ca
+1349 menu Form4.Openfile1 d03fad78686012ca
+1350 menu Form4.About1 d03fad78686012ca
+1351 menu Form4.About1 d03fad78686012ca
+1352 timers d03fad78686012ca
+1353 menu Form4.Openfile1 d03fad78686012ca
+1354 menu Form4.About1 d03fad78686012ca
+1355 menu Form4.StopMusic1 3ff506df613cc394
+1356 timers 3ff506df613cc394
+1357 menu Form4.StopMusic1 3e594be86747a2de
+1358 timers 3e594be86747a2de
+1359 timers 3e594be86747a2de
+1360 timers 3e594be86747a2de
+1361 menu Form4.About1 3e594be86747a2de
+1362 menu Form4.About1 3e594be86747a2de
+1363 timers 3e594be86747a2de
+1364 menu Form4.StopMusic1 9f972985a471a88f
+1365 menu Form4.About1 9f972985a471a88f
+1366 timers 9f972985a471a88f
+1367 lvdbl Form5.ListView1 0 609ce5f98fc0f85a
+1368 menu Form4.StopMusic1 5aa72c1198ed7524
+1369 menu Form4.RepeatMusic1 4f049b347fb413c1
+1370 menu Form4.About1 4f049b347fb413c1
+1371 menu Form4.About1 4f049b347fb413c1
+1372 timers 4f049b347fb413c1
+1373 menu Form4.Openfile1 8f28dd89fcc30dce
+1374 lvdbl Form5.ListView1 0 f0ac40b2ad928f11
+1375 menu Form4.StopMusic1 5302ef906fef80cc
+1376 timers 5302ef906fef80cc
+1377 timers 5302ef906fef80cc
+1378 menu Form4.About1 5302ef906fef80cc
+1379 lvdbl Form5.ListView1 0 dc8044fed38b7315
+1380 timers dc8044fed38b7315
+1381 timers dc8044fed38b7315
+1382 timers dc8044fed38b7315
+1383 timers dc8044fed38b7315
+1384 menu Form4.Contents1 dc8044fed38b7315
+1385 timers dc8044fed38b7315
+1386 menu Form4.Openfile1 dc8044fed38b7315
+1387 menu Form4.RepeatMusic1 8df8e29d03bc6ee8
+1388 lvdbl Form5.ListView1 0 8fd44e1ab296cbe1
+1389 lvdbl Form5.ListView1 0 2ab0318909c200b0
+1390 lvdbl Form5.ListView1 0 86d151274a1749f9
+1391 menu Form4.RepeatMusic1 ad164baefe1b373c
+1392 menu Form4.RepeatMusic1 86d151274a1749f9
+1393 menu Form4.Openfile1 86d151274a1749f9
+1394 menu Form4.StopMusic1 ee84aa64d8078eff
+1395 timers ee84aa64d8078eff
+1396 menu Form4.RepeatMusic1 628e7c47e2685196
+1397 menu Form4.RepeatMusic1 ee84aa64d8078eff
+1398 menu Form4.Openfile1 ee84aa64d8078eff
+1399 menu Form4.Contents1 ee84aa64d8078eff
+1400 timers ee84aa64d8078eff
+1401 lvdbl Form5.ListView1 0 3bde02de852a083a
+1402 lvdbl Form5.ListView1 0 1da35022d6208ee7
+1403 menu Form4.About1 1da35022d6208ee7
+1404 timers 1da35022d6208ee7
+1405 lvdbl Form5.ListView1 0 d44cb92f60ed1ef2
+1406 menu Form4.RepeatMusic1 97fcb75c2ede533b
+1407 timers 97fcb75c2ede533b
+1408 timers 97fcb75c2ede533b
+1409 timers 97fcb75c2ede533b
+1410 timers 97fcb75c2ede533b
+1411 lvdbl Form5.ListView1 0 9bc59f024212e046
+1412 menu Form4.StopMusic1 dd9404b4127b8471
+1413 menu Form4.Contents1 dd9404b4127b8471
+1414 menu Form4.Openfile1 5140824b3ad97674
+1415 lvdbl Form5.ListView1 0 f91ceeecff30109f
+1416 timers f91ceeecff30109f
+1417 menu Form4.About1 f91ceeecff30109f
+1418 menu Form4.Contents1 f91ceeecff30109f
+1419 timers f91ceeecff30109f
+1420 menu Form4.Contents1 f91ceeecff30109f
+1421 menu Form4.StopMusic1 202d7623afee7010
+1422 lvdbl Form5.ListView1 0 16f4f880ecf18bf5
+1423 timers 16f4f880ecf18bf5
+1424 menu Form4.Openfile1 16f4f880ecf18bf5
+1425 menu Form4.Openfile1 16f4f880ecf18bf5
+1426 menu Form4.Openfile1 16f4f880ecf18bf5
+1427 menu Form4.Openfile1 16f4f880ecf18bf5
+1428 menu Form4.About1 16f4f880ecf18bf5
+1429 lvdbl Form5.ListView1 0 3a692a1ce61dccd8
+1430 timers 3a692a1ce61dccd8
+1431 lvdbl Form5.ListView1 0 e1c6e125e2e9e9ad
+1432 menu Form4.RepeatMusic1 a8428ea3dc08cf04
+1433 menu Form4.About1 a8428ea3dc08cf04
+1434 timers a8428ea3dc08cf04
+1435 lvdbl Form5.ListView1 0 d5e5d88bffdcfdf9
+1436 menu Form4.About1 d5e5d88bffdcfdf9
+1437 timers d5e5d88bffdcfdf9
+1438 menu Form4.Contents1 d5e5d88bffdcfdf9
+1439 timers d5e5d88bffdcfdf9
+1440 timers d5e5d88bffdcfdf9
+1441 timers d5e5d88bffdcfdf9
+1442 menu Form4.Openfile1 d5e5d88bffdcfdf9
+1443 menu Form4.About1 d5e5d88bffdcfdf9
+1444 timers d5e5d88bffdcfdf9
+1445 timers d5e5d88bffdcfdf9
+1446 lvdbl Form5.ListView1 0 547f43c740aad8dc
+1447 menu Form4.Openfile1 c2cf94f9c8625a67
+1448 lvdbl Form5.ListView1 0 dd1a3222f9564e6c
+1449 menu Form4.StopMusic1 0c159c3848424ac5
+1450 menu Form4.StopMusic1 f8e20e0dbcd1a02c
+1451 timers f8e20e0dbcd1a02c
+1452 timers f8e20e0dbcd1a02c
+1453 timers f8e20e0dbcd1a02c
+1454 menu Form4.Contents1 f8e20e0dbcd1a02c
+1455 menu Form4.Openfile1 f8e20e0dbcd1a02c
+1456 timers f8e20e0dbcd1a02c
+1457 timers f8e20e0dbcd1a02c
+1458 timers f8e20e0dbcd1a02c
+1459 lvdbl Form5.ListView1 0 c3ed2b1567daee11
+1460 menu Form4.Openfile1 e73ed5cbdc122d16
+1461 menu Form4.StopMusic1 e4dedf4021c1359d
+1462 click Form4.Button1 e4dedf4021c1359d
+1463 click Form4.Button1 e4dedf4021c1359d
+1464 click Form4.Button1 e4dedf4021c1359d
+1465 click Form4.Button1 e4dedf4021c1359d
+1466 menu Form4.About1 e4dedf4021c1359d
+1467 click Form4.Button1 e4dedf4021c1359d
+1468 click Form4.Button1 e4dedf4021c1359d
+1469 click Form4.Button1 e4dedf4021c1359d
+1470 menu Form4.RepeatMusic1 8e42e22abd89077e
+1471 click Form4.Button1 8e42e22abd89077e
+1472 timers 2cb4e579a0c7a415
+1473 click Form4.Button1 2cb4e579a0c7a415
+1474 menu Form4.Contents1 2cb4e579a0c7a415
+1475 click Form4.Button1 2cb4e579a0c7a415
+1476 click Form4.Button1 2cb4e579a0c7a415
+1477 timers 2cb4e579a0c7a415
+1478 click Form4.Button1 2cb4e579a0c7a415
+1479 radio Form4.RadioGroup1 2 bc977b4d9c4d0fe9
+1480 click Form4.Button1 9b80fe1ef08fef07
+1481 click Form4.Button1 c19473475b49a235
+1482 radio Form4.RadioGroup1 2 c19473475b49a235
+1483 timers 64297fddb22cd1c8
+1484 menu Form4.RepeatMusic1 955a41d4db4507c3
+1485 radio Form4.RadioGroup1 3 c59e12d922c66422
+1486 timers c59e12d922c66422
+1487 radio Form4.RadioGroup1 4 2e0d854cc785b001
+1488 menu Form4.Contents1 2e0d854cc785b001
+1489 click Form4.EndButton 8c99c748ae8abed7
+1490 menu Form4.StopMusic1 db0b28fc1d09dbe5
+1491 menu Form4.Silver1 91c27fd5ca796eca
+1492 menu Form4.RepeatMusic1 74ee97e922f44fb7
+1493 menu Form4.Contents1 74ee97e922f44fb7
+1494 timers 74ee97e922f44fb7
+1495 menu Form4.About1 74ee97e922f44fb7
+1496 timers 74ee97e922f44fb7
+1497 lvdbl Form5.ListView1 0 708032493137cb7a
+1498 click Form4.Button1 708032493137cb7a
+1499 timers 70e90bb1cbef82b3

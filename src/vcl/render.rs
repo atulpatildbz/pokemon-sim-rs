@@ -9,6 +9,8 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
 pub const MENU_HEIGHT: f32 = 20.0;
+/// clBtnFace in the game skin: warm paper.
+pub const GAME_FACE: Color32 = Color32::from_rgb(0xF2, 0xF2, 0xEA);
 
 /// Windows XP-era system colours for D7's `$FF0000xx` encoding.
 pub fn tcolor(c: TColor) -> Color32 {
@@ -36,6 +38,13 @@ pub fn tcolor(c: TColor) -> Color32 {
 
 pub fn install_fonts(ctx: &egui::Context) {
     let mut fonts = egui::FontDefinitions::default();
+    add_system_fonts(&mut fonts);
+    ctx.set_fonts(fonts);
+    classic_visuals(ctx);
+}
+
+/// MS Sans Serif / Arial from the system (the original's fonts), as families "mssans" / "arial".
+pub fn add_system_fonts(fonts: &mut egui::FontDefinitions) {
     let candidates = [
         ("mssans", "/System/Library/Fonts/Supplemental/Microsoft Sans Serif.ttf"),
         ("mssans", "C:\\Windows\\Fonts\\micross.ttf"),
@@ -63,7 +72,10 @@ pub fn install_fonts(ctx: &egui::Context) {
     if let Some(list) = fonts.families.get(&FontFamily::Name("mssans".into())).cloned() {
         fonts.families.insert(FontFamily::Proportional, list);
     }
-    ctx.set_fonts(fonts);
+}
+
+/// Windows classic look.
+pub fn classic_visuals(ctx: &egui::Context) {
     // Windows classic look: light theme, square corners, btnface buttons.
     let mut v = egui::Visuals::light();
     let face = tcolor(CL_BTN_FACE);
@@ -83,6 +95,14 @@ pub fn install_fonts(ctx: &egui::Context) {
     v.widgets.noninteractive.fg_stroke.color = Color32::BLACK;
     v.override_text_color = None;
     ctx.set_visuals(v);
+}
+
+/// How controls are painted: the original Windows look, or the game skin.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Skin {
+    #[default]
+    Classic,
+    Game,
 }
 
 fn font_id(f: &FontSpec) -> FontId {
@@ -109,12 +129,15 @@ pub fn strip_amp(s: &str) -> String {
 
 #[derive(Default)]
 pub struct Renderer {
+    pub skin: Skin,
     textures: HashMap<(String, i32), TextureHandle>,
     /// Text being typed into TEdits, until the logic thread's snapshot catches up.
     edit_buffers: HashMap<(String, String), String>,
     /// Last Left/Top seen per form (to detect moves made by game code vs. by the user).
     positions: HashMap<String, (i32, i32)>,
     raise_seq: u64,
+    /// Game skin: the combo box whose drop-down list is open, and where its box was drawn.
+    open_combo: Option<(String, String, Rect)>,
 }
 
 fn to_color_image(img: &Rgba) -> egui::ColorImage {
@@ -122,6 +145,56 @@ fn to_color_image(img: &Rgba) -> egui::ColorImage {
 }
 
 impl Renderer {
+    fn font(&self, f: &FontSpec) -> FontId {
+        match self.skin {
+            Skin::Classic => font_id(f),
+            Skin::Game => {
+                let px = f.height.unsigned_abs().max(8) as f32;
+                if f.bold { crate::ui::theme::bold((px * 1.3).round()) } else { crate::ui::theme::body((px * 1.3).round()) }
+            }
+        }
+    }
+
+    fn col(&self, c: TColor) -> Color32 {
+        match self.skin {
+            Skin::Game if c == CL_BTN_FACE => GAME_FACE,
+            Skin::Game if c == 0xFF00_000D => crate::ui::theme::FRAME_INNER,
+            Skin::Game if c == 0 || c == 0xFF00_0008 || c == 0xFF00_0012 => crate::ui::theme::INK,
+            _ => tcolor(c),
+        }
+    }
+
+    fn bevel(&self, p: &egui::Painter, r: Rect, sunk: bool) {
+        match self.skin {
+            Skin::Classic if sunk => sunken(p, r),
+            Skin::Classic => raised(p, r),
+            Skin::Game => {
+                p.rect_stroke(r, 4.0, Stroke::new(1.5, crate::ui::theme::FRAME), StrokeKind::Inside);
+            }
+        }
+    }
+
+    fn group(&self, p: &egui::Painter, rect: Rect, caption: &str, fid: &FontId, col: Color32) {
+        match self.skin {
+            Skin::Classic => group_frame(p, rect, caption, fid, col),
+            Skin::Game => {
+                use crate::ui::theme as t;
+                let galley_h = fid.size;
+                p.rect_filled(rect, 0.0, GAME_FACE);
+                let frame = Rect::from_min_max(rect.min + Vec2::new(0.0, galley_h * 0.5), rect.max);
+                p.rect_filled(frame, 6.0, Color32::from_rgb(0xFA, 0xFA, 0xF6));
+                p.rect_stroke(frame, 6.0, Stroke::new(2.0, t::FRAME_INNER), StrokeKind::Inside);
+                let cap = strip_amp(caption);
+                if !cap.trim().is_empty() {
+                    let galley = p.layout_no_wrap(cap, fid.clone(), t::PAPER);
+                    let bg = Rect::from_min_size(rect.min + Vec2::new(6.0, -1.0), galley.size() + Vec2::new(10.0, 2.0));
+                    p.rect_filled(bg, 4.0, t::FRAME);
+                    p.galley(bg.min + Vec2::new(5.0, 1.0), galley, t::PAPER);
+                }
+            }
+        }
+    }
+
     fn texture(&mut self, ctx: &egui::Context, assets: &Assets, key: &str, index: i32) -> Option<TextureHandle> {
         let k = (key.to_string(), index);
         if let Some(t) = self.textures.get(&k) {
@@ -193,18 +266,7 @@ impl Renderer {
         let resp = win.show(ctx, |ui| {
             ui.set_min_size(size);
             ui.set_max_size(size);
-            let origin = ui.min_rect().min;
-            if !form.menu.is_empty() {
-                self.menu_bar(ui, form, tx, interactive);
-            }
-            let client = origin + Vec2::new(0.0, menu_h);
-            ui.add_enabled_ui(interactive, |ui| {
-                for i in 0..form.controls.len() {
-                    if form.controls[i].kind.is_visual() && form.showing(i) {
-                        self.control(ui, form, i, client, assets, tx);
-                    }
-                }
-            });
+            self.form_body(ui, form, assets, tx, interactive, true);
         });
         if let Some(r) = resp {
             let p = (r.response.rect.left().round() as i32, r.response.rect.top().round() as i32);
@@ -216,6 +278,79 @@ impl Renderer {
         }
         if !open {
             let _ = tx.send(Input::CloseForm { form: form.var.clone() });
+        }
+    }
+
+    /// The form's client area (and menu bar if `with_menu`), drawn at the ui's top-left.
+    pub fn form_body(&mut self, ui: &mut egui::Ui, form: &Form, assets: &Assets, tx: &Sender<Input>, interactive: bool, with_menu: bool) {
+        let origin = ui.min_rect().min;
+        let menu_h = if with_menu && !form.menu.is_empty() { MENU_HEIGHT } else { 0.0 };
+        if menu_h > 0.0 {
+            self.menu_bar(ui, form, tx, interactive);
+        }
+        let client = origin + Vec2::new(0.0, menu_h);
+        ui.add_enabled_ui(interactive, |ui| {
+            for i in paint_order(form) {
+                if form.controls[i].kind.is_visual() && form.showing(i) {
+                    self.control(ui, form, i, client, assets, tx);
+                }
+            }
+            self.combo_list(ui, form, tx);
+        });
+    }
+
+    /// Game skin: the open combo box's list, drawn in the form's own layer (egui popups would
+    /// not follow the scaled layer).
+    fn combo_list(&mut self, ui: &mut egui::Ui, form: &Form, tx: &Sender<Input>) {
+        use crate::ui::theme as t;
+        let Some((fv, name, anchor)) = self.open_combo.clone() else { return };
+        if fv != form.var {
+            return;
+        }
+        if !form.has(&name) {
+            self.open_combo = None;
+            return;
+        }
+        let c = form.c(&name);
+        let fid = self.font(&c.font);
+        let row_h = (fid.size + 8.0).max(anchor.height());
+        let rows = c.items.len().min(8) as f32;
+        let list = Rect::from_min_size(anchor.left_bottom() + Vec2::new(0.0, 2.0), Vec2::new(anchor.width().max(120.0), row_h * rows + 4.0));
+        let painter = ui.painter_at(ui.clip_rect());
+        painter.rect_filled(list.translate(Vec2::splat(3.0)), 6.0, Color32::from_black_alpha(50));
+        painter.rect_filled(list, 6.0, t::PAPER);
+        painter.rect_stroke(list, 6.0, Stroke::new(2.0, t::FRAME), StrokeKind::Inside);
+        let mut picked = None;
+        ui.scope_builder(egui::UiBuilder::new().max_rect(list.shrink(2.0)).layer_id(ui.layer_id()), |ui| {
+            egui::ScrollArea::vertical().id_salt(("gcl", &form.var, &name)).show(ui, |ui| {
+                for (k, item) in c.items.iter().enumerate() {
+                    let (r, resp) = ui.allocate_exact_size(Vec2::new(list.width() - 6.0, row_h), Sense::click());
+                    let sel = c.item_index == k as i32;
+                    if sel || resp.hovered() {
+                        ui.painter().rect_filled(r, 4.0, if sel { t::FRAME_INNER } else { Color32::from_rgb(0xE8, 0xF0, 0xF8) });
+                    }
+                    ui.painter().text(r.left_center() + Vec2::new(6.0, 0.0), Align2::LEFT_CENTER, item, fid.clone(), t::INK);
+                    if resp.clicked() {
+                        picked = Some(k as i32);
+                    }
+                }
+            });
+        });
+        let clicked_outside = ui.input(|i| i.pointer.any_pressed())
+            && ui.ctx().pointer_interact_pos().is_some_and(|p| {
+                let local = ui.ctx().layer_transform_from_global(ui.layer_id()).map_or(p, |t| t * p);
+                !list.contains(local) && !anchor.contains(local)
+            });
+        if let Some(k) = picked {
+            self.open_combo = None;
+            if k != c.item_index {
+                let _ = tx.send(Input::SetItemIndex { form: form.var.clone(), control: c.name.clone(), index: k });
+                if c.events.on_change.is_some() {
+                    let _ = tx.send(Input::Event { form: form.var.clone(), control: c.name.clone(), event: Event::Change });
+                }
+            }
+        } else if clicked_outside {
+            self.open_combo = None;
         }
     }
 
@@ -239,12 +374,12 @@ impl Renderer {
             }
         };
         let painter = ui.painter_at(ui.clip_rect());
-        let fid = font_id(&c.font);
-        let fcol = if enabled { tcolor(c.font.color) } else { Color32::GRAY };
+        let fid = self.font(&c.font);
+        let fcol = if enabled { self.col(c.font.color) } else { Color32::GRAY };
         match c.kind {
             Kind::Label => {
                 if !c.parent_color && !c.transparent {
-                    painter.rect_filled(rect, 0.0, tcolor(c.color));
+                    painter.rect_filled(rect, 0.0, self.col(c.color));
                 }
                 let (anchor, pos) = match c.alignment {
                     1 => (Align2::RIGHT_TOP, rect.right_top()),
@@ -252,6 +387,18 @@ impl Renderer {
                     _ => (Align2::LEFT_TOP, rect.left_top()),
                 };
                 painter.text(pos, anchor, strip_amp(&c.caption), fid, fcol);
+            }
+            Kind::Button if self.skin == Skin::Game => {
+                let kind = if c.name.contains("End") || c.caption.contains("Cancel") {
+                    crate::ui::theme::ButtonKind::Danger
+                } else if c.caption.contains("Go!") {
+                    crate::ui::theme::ButtonKind::Primary
+                } else {
+                    crate::ui::theme::ButtonKind::Plain
+                };
+                if crate::ui::theme::button(ui, rect, &strip_amp(&c.caption), kind, enabled).clicked() {
+                    send(Event::Click, &c.events.on_click);
+                }
             }
             Kind::Button => {
                 let resp = ui.put(
@@ -278,8 +425,8 @@ impl Renderer {
                 }
             }
             Kind::Memo => {
-                painter.rect_filled(rect, 0.0, tcolor(c.color));
-                sunken(&painter, rect);
+                painter.rect_filled(rect, 0.0, self.col(c.color));
+                self.bevel(&painter, rect, true);
                 let text = c.items.join("\n");
                 ui.scope_builder(egui::UiBuilder::new().max_rect(rect.shrink(3.0)), |ui| {
                     egui::ScrollArea::vertical().id_salt(("memo", &form.var, &c.name)).stick_to_bottom(true).show(ui, |ui| {
@@ -290,7 +437,7 @@ impl Renderer {
             }
             Kind::ListView => self.list_view(ui, form, c, rect, assets, tx),
             Kind::RadioGroup => {
-                group_frame(&painter, rect, &c.caption, &fid, fcol);
+                self.group(&painter, rect, &c.caption, &fid, fcol);
                 let n = c.items.len().max(1);
                 let cols = c.columns.max(1) as usize;
                 let rows = n.div_ceil(cols);
@@ -304,7 +451,23 @@ impl Renderer {
                         Vec2::new(col_w, row_h),
                     );
                     let mut sel = c.item_index == k as i32;
-                    let resp = ui.put(r, egui::RadioButton::new(sel, egui::RichText::new(strip_amp(item)).font(fid.clone())));
+                    let resp = if self.skin == Skin::Game {
+                        use crate::ui::theme as t;
+                        let resp = ui.interact(r, ui.id().with(("radio", &c.name, k)), Sense::click());
+                        if sel || resp.hovered() {
+                            painter.rect_filled(r.shrink2(Vec2::new(0.0, 1.0)), 4.0, if sel { Color32::from_rgb(0xD8, 0xE8, 0xF8) } else { Color32::from_rgb(0xEE, 0xF4, 0xFA) });
+                        }
+                        let dot = Pos2::new(r.left() + r.height() * 0.45, r.center().y);
+                        painter.circle_filled(dot, r.height() * 0.3, t::FRAME);
+                        painter.circle_filled(dot, r.height() * 0.3 - 1.5, Color32::WHITE);
+                        if sel {
+                            painter.circle_filled(dot, r.height() * 0.16, t::RED);
+                        }
+                        painter.text(Pos2::new(r.left() + r.height() * 0.95, r.center().y), Align2::LEFT_CENTER, strip_amp(item), fid.clone(), fcol);
+                        resp
+                    } else {
+                        ui.put(r, egui::RadioButton::new(sel, egui::RichText::new(strip_amp(item)).font(fid.clone())))
+                    };
                     if enabled && resp.clicked() && !sel {
                         sel = true;
                         let _ = tx.send(Input::SetItemIndex { form: form.var.clone(), control: c.name.clone(), index: k as i32 });
@@ -313,13 +476,13 @@ impl Renderer {
                     let _ = sel;
                 }
             }
-            Kind::GroupBox => group_frame(&painter, rect, &c.caption, &fid, fcol),
+            Kind::GroupBox => self.group(&painter, rect, &c.caption, &fid, fcol),
             Kind::Panel => {
-                painter.rect_filled(rect, 0.0, tcolor(c.color));
-                raised(&painter, rect);
+                painter.rect_filled(rect, 0.0, self.col(c.color));
+                self.bevel(&painter, rect, false);
                 painter.text(rect.center(), Align2::CENTER_CENTER, strip_amp(&c.caption), fid, fcol);
             }
-            Kind::Bevel => sunken(&painter, rect),
+            Kind::Bevel => self.bevel(&painter, rect, true),
             Kind::Image => {
                 let tex = match &c.picture {
                     Some(PictureRef::Design(k)) => self.texture(ui.ctx(), assets, k, -1),
@@ -335,6 +498,11 @@ impl Renderer {
                     send(Event::Click, &c.events.on_click);
                 }
             }
+            Kind::Gauge if self.skin == Skin::Game => {
+                let span = (c.max_value - c.min_value).max(1) as f32;
+                let frac = ((c.progress - c.min_value) as f32 / span).clamp(0.0, 1.0);
+                crate::ui::theme::hp_bar(&painter, rect, frac);
+            }
             Kind::Gauge => {
                 painter.rect_filled(rect, 0.0, tcolor(c.back_color));
                 let span = (c.max_value - c.min_value).max(1) as f32;
@@ -346,6 +514,19 @@ impl Renderer {
                 // TGauge ShowText: percentage, Delphi Trunc((Progress-Min)*100/(Max-Min)).
                 let pct = ((c.progress - c.min_value) as i64 * 100 / (c.max_value - c.min_value).max(1) as i64) as i32;
                 painter.text(rect.center(), Align2::CENTER_CENTER, format!("{pct}%"), fid, Color32::BLACK);
+            }
+            Kind::ComboBox if self.skin == Skin::Game => {
+                use crate::ui::theme as t;
+                let text = if c.item_index >= 0 { c.items.get(c.item_index as usize).cloned().unwrap_or_default() } else { c.text.clone() };
+                let resp = ui.interact(rect, ui.id().with(("gcombo", &c.name)), Sense::click());
+                painter.rect_filled(rect, 4.0, Color32::WHITE);
+                painter.rect_stroke(rect, 4.0, Stroke::new(1.5, t::FRAME), StrokeKind::Inside);
+                painter.text(rect.left_center() + Vec2::new(4.0, 0.0), Align2::LEFT_CENTER, text, fid.clone(), fcol);
+                t::icon(&painter, rect.right_center() - Vec2::new(rect.height() * 0.4, 0.0), rect.height() * 0.45, t::Icon::Down, t::FRAME);
+                if enabled && resp.clicked() {
+                    let is_open = self.open_combo.as_ref().is_some_and(|(f, n, _)| *f == form.var && *n == c.name);
+                    self.open_combo = if is_open { None } else { Some((form.var.clone(), c.name.clone(), rect)) };
+                }
             }
             Kind::ComboBox => {
                 let mut sel = c.item_index;
@@ -386,9 +567,9 @@ impl Renderer {
 
     fn list_view(&mut self, ui: &mut egui::Ui, form: &Form, c: &Control, rect: Rect, assets: &Assets, tx: &Sender<Input>) {
         let painter = ui.painter_at(rect);
-        painter.rect_filled(rect, 0.0, tcolor(c.color));
-        sunken(&ui.painter_at(ui.clip_rect()), rect);
-        let fid = font_id(&c.font);
+        painter.rect_filled(rect, 0.0, self.col(c.color));
+        self.bevel(&ui.painter_at(ui.clip_rect()), rect, true);
+        let fid = self.font(&c.font);
         let icons = if c.view_style == "vsIcon" { c.large_images.clone() } else { c.small_images.clone() };
         let (iw, ih) = icons
             .as_ref()
@@ -418,14 +599,14 @@ impl Renderer {
                     let resp = ui.interact(r, ui.id().with(("lvi", &c.name, k)), Sense::click());
                     let selected = c.item_index == k as i32;
                     if selected {
-                        ui.painter().rect_filled(Rect::from_min_size(r.min + Vec2::new(iw + 2.0, 0.0), Vec2::new(item_w - iw - 2.0, item_h)), 0.0, tcolor(0xFF00_000D));
+                        ui.painter().rect_filled(Rect::from_min_size(r.min + Vec2::new(iw + 2.0, 0.0), Vec2::new(item_w - iw - 2.0, item_h)), 0.0, self.col(0xFF00_000D));
                     }
                     if let Some(key) = &icons {
                         if let Some(t) = self.texture(ui.ctx(), assets, key, it.image_index) {
                             ui.painter().image(t.id(), Rect::from_min_size(r.min, Vec2::new(iw, ih)), Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
                         }
                     }
-                    let tcol = if selected { Color32::WHITE } else { tcolor(c.font.color) };
+                    let tcol = if selected { Color32::WHITE } else { self.col(c.font.color) };
                     ui.painter().text(r.left_center() + Vec2::new(iw + 4.0, 0.0), Align2::LEFT_CENTER, &it.caption, fid.clone(), tcol);
                     if resp.clicked() || resp.double_clicked() {
                         if !selected {
@@ -499,6 +680,25 @@ impl Renderer {
             Dialog::ModalForm { .. } => {}
         }
     }
+}
+
+/// VCL paint order: within each parent, graphic controls (TLabel, TImage, TBevel, TGauge) are
+/// painted on the parent's canvas first, then windowed controls on top, in creation order.
+fn paint_order(form: &Form) -> Vec<usize> {
+    let windowed = |k: Kind| !matches!(k, Kind::Label | Kind::Image | Kind::Bevel | Kind::Gauge);
+    let key = |i: usize| {
+        let mut path = Vec::new();
+        let mut cur = Some(i);
+        while let Some(c) = cur {
+            path.push((windowed(form.controls[c].kind), c));
+            cur = form.controls[c].parent;
+        }
+        path.reverse();
+        path
+    };
+    let mut order: Vec<usize> = (0..form.controls.len()).collect();
+    order.sort_by_cached_key(|&i| key(i));
+    order
 }
 
 fn ancestors_enabled(form: &Form, i: usize) -> bool {
