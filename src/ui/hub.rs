@@ -250,7 +250,12 @@ pub fn cards(ui: &mut egui::Ui, form: &Form, path: &[String], tx: &Sender<Input>
                     let initial: String = name.chars().filter(|c| c.is_alphanumeric()).take(1).collect();
                     p.text(face_c, Align2::CENTER_CENTER, initial, t::bold(16.0), Color32::WHITE);
                     let ink = if enabled { t::INK } else { t::GREY };
-                    let size = if name.chars().count() > 16 { 14.0 } else { 17.0 };
+                    // Shrink long names to fit the card.
+                    let room = br.right() - (face_c.x + 24.0) - 10.0;
+                    let mut size = 17.0;
+                    while size > 10.0 && p.layout_no_wrap(name.clone(), t::bold(size), ink).size().x > room {
+                        size -= 1.0;
+                    }
                     t::text(p, Pos2::new(face_c.x + 24.0, face_c.y), Align2::LEFT_CENTER, &name, t::bold(size), ink);
                     if !m.enabled {
                         t::icon(p, br.right_top() + Vec2::new(-14.0, 14.0), 12.0, t::Icon::Lock, t::GREY);

@@ -15,11 +15,29 @@ bundled = []
 eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
 egui = "0.31"
 ttf-parser = "0.25"
-rfd = "0.15"
 rodio = "0.20"
+
+[target.'cfg(not(target_os = "android"))'.dependencies]
+rfd = "0.15"
+
+[target.'cfg(target_os = "android")'.dependencies]
+eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "android-native-activity"] }
+winit = { version = "0.30", features = ["android-native-activity"] }
+
+[lib]
+# cdylib: the Android NativeActivity loads libpokegame.so.
+crate-type = ["rlib", "cdylib"]
 
 [profile.release]
 opt-level = 3
 
 [profile.dev.package."*"]
 opt-level = 2
+
+# Two one-line patches for Android (see `pokegame:` comments in vendor/):
+# - egui_glow: highp shaders — the stock mediump texture coordinates sample neighbouring
+#   glyphs from the font atlas on phone GPUs (stray marks after letters).
+# - egui-winit: Android's Back button (BrowserBack) maps to Escape.
+[patch.crates-io]
+egui_glow = { path = "vendor/egui_glow" }
+egui-winit = { path = "vendor/egui-winit" }

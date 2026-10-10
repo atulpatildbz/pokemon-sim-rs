@@ -9,6 +9,7 @@ pub mod audio;
 pub mod battle;
 pub mod chiptune;
 pub mod hub;
+pub mod icon;
 pub mod naming;
 pub mod screens;
 pub mod settings;
@@ -31,6 +32,9 @@ use theme as t;
 /// Forms that fill the screen; every other form is a sheet.
 const SCENES: [&str; 3] = ["Form3", "Form1", "Form4"];
 const DOCK_H: f32 = 64.0;
+/// Status bar / gesture bar clearance on Android (points ≈ dp).
+const SAFE_TOP: f32 = 44.0;
+const SAFE_BOTTOM: f32 = 20.0;
 
 /// Sheets that are not forms.
 pub const OPTIONS: &str = "#options";
@@ -177,6 +181,18 @@ impl GameUi {
     }
 
     pub fn show(&mut self, ctx: &egui::Context, snap: &Snapshot, fx: Vec<Fx>, assets: &Assets, tx: &Sender<Input>) {
+        // Pixel fonts need whole-number scaling: round the phone's density (2.625 on a Pixel 9
+        // -> 3, i.e. a 360-point-wide screen).
+        // POKEGAME_PPP forces a scale (to reproduce phone rendering on desktop).
+        let forced = std::env::var("POKEGAME_PPP").ok().and_then(|v| v.parse::<f32>().ok());
+        if cfg!(target_os = "android") || forced.is_some() {
+            if let Some(native) = forced.or(ctx.native_pixels_per_point()) {
+                let want = native.round().max(1.0);
+                if (ctx.pixels_per_point() - want).abs() > 0.01 {
+                    ctx.set_pixels_per_point(want);
+                }
+            }
+        }
         if ctx.input(|i| i.key_pressed(egui::Key::F2)) {
             let on = !self.settings.classic;
             self.set_classic(ctx, on);
@@ -203,7 +219,7 @@ impl GameUi {
     /// Classic mode: a small gear in the corner opens Options as a window.
     fn classic_overlay(&mut self, ctx: &egui::Context, snap: &Snapshot, tx: &Sender<Input>) {
         let screen = ctx.screen_rect();
-        egui::Area::new(Id::new("classic_gear")).order(Order::Foreground).fixed_pos(screen.right_bottom() - Vec2::new(36.0, 36.0)).show(ctx, |ui| {
+        egui::Area::new(Id::new("classic_gear")).movable(false).order(Order::Foreground).fixed_pos(screen.right_bottom() - Vec2::new(36.0, 36.0)).show(ctx, |ui| {
             if ui.add(egui::Button::new("⚙").min_size(Vec2::splat(28.0))).on_hover_text("Options (F2: game mode)").clicked() {
                 self.sheet = if self.sheet.as_deref() == Some(OPTIONS) { None } else { Some(OPTIONS.into()) };
             }
@@ -224,12 +240,18 @@ impl GameUi {
 
     fn game(&mut self, ctx: &egui::Context, snap: &Snapshot, assets: &Assets, tx: &Sender<Input>) {
         let now = ctx.input(|i| i.time);
-        let screen = ctx.screen_rect();
+        let full = ctx.screen_rect();
+        // Android draws edge to edge: keep the UI clear of the status bar and gesture bar.
+        let screen = if cfg!(target_os = "android") {
+            Rect::from_min_max(full.min + Vec2::new(0.0, SAFE_TOP), full.max - Vec2::new(0.0, SAFE_BOTTOM))
+        } else {
+            full
+        };
         let wide = screen.width() >= 820.0 && screen.width() > screen.height() * 1.15;
         let anim = |secs: f32| if self.settings.animations { secs } else { 0.0 };
 
         egui::CentralPanel::default().frame(egui::Frame::new()).show(ctx, |ui| {
-            t::backdrop(ui.painter(), screen, if self.settings.animations { now } else { 0.0 });
+            t::backdrop(ui.painter(), full, if self.settings.animations { now } else { 0.0 });
         });
         if self.settings.animations {
             ctx.request_repaint_after(std::time::Duration::from_millis(50));
@@ -287,6 +309,13 @@ impl GameUi {
             }
         }
 
+        // Back (Android) / Escape closes the open sheet, unless a modal form needs an answer.
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape))
+            && self.sheet.as_ref().is_some_and(|s| modal_form.as_deref() != Some(s.as_str()))
+        {
+            self.sheet = None;
+        }
+
         // Layout.
         let open = ctx.animate_bool_with_time(Id::new("sheet_open"), self.sheet.is_some(), anim(0.22));
         let open = ease_out(open);
@@ -313,14 +342,14 @@ impl GameUi {
         }
         if naming {
             let id = snap.dialog.as_ref().map_or(0, |(id, _)| *id);
-            egui::Area::new(Id::new("naming")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+            egui::Area::new(Id::new("naming")).movable(false).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
                 ui.set_clip_rect(scene_rect);
                 self.naming.show(ui, scene_rect, snap, id, tx, now);
             });
         } else if self.scene == "Form1" {
             let mut req = None;
             let animate = self.settings.animations;
-            egui::Area::new(Id::new("title")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+            egui::Area::new(Id::new("title")).movable(false).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
                 ui.set_clip_rect(scene_rect);
                 ui.multiply_opacity(scene_fade);
                 ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
@@ -333,7 +362,7 @@ impl GameUi {
                 None => {}
             }
         } else if self.scene == "Form4" && screens::evolve_choice_active(snap) {
-            egui::Area::new(Id::new("evolve_choice")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+            egui::Area::new(Id::new("evolve_choice")).movable(false).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
                 ui.set_clip_rect(scene_rect);
                 ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
                     screens::evolve_choice(ui, scene_rect, snap, &mut self.renderer, assets, tx);
@@ -341,14 +370,14 @@ impl GameUi {
             });
         } else if self.scene == "Form4" && starter::active(snap) {
             let animate = self.settings.animations;
-            egui::Area::new(Id::new("starter")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+            egui::Area::new(Id::new("starter")).movable(false).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
                 ui.set_clip_rect(scene_rect);
                 ui.multiply_opacity(scene_fade);
                 self.starter.show(ui, scene_rect, snap, &mut self.renderer, assets, tx, animate, now);
             });
         } else if in_battle {
             let mut req = None;
-            egui::Area::new(Id::new("battle")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+            egui::Area::new(Id::new("battle")).movable(false).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
                 ui.set_clip_rect(scene_rect);
                 ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
                     req = self.battle.show(ui, scene_rect, snap, &mut self.renderer, assets, &self.settings, tx);
@@ -366,7 +395,7 @@ impl GameUi {
         } else if self.scene == "Form4" && hub::active(snap) {
             let mut req = None;
             let animate = self.settings.animations;
-            egui::Area::new(Id::new("hub")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+            egui::Area::new(Id::new("hub")).movable(false).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
                 ui.set_clip_rect(scene_rect);
                 ui.multiply_opacity(scene_fade);
                 ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
@@ -405,7 +434,7 @@ impl GameUi {
             };
             if !wide {
                 // Dim the scene; tapping it closes the sheet (unless a modal form needs an answer).
-                let dim = egui::Area::new(Id::new("sheet_dim")).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+                let dim = egui::Area::new(Id::new("sheet_dim")).movable(false).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
                     ui.painter().rect_filled(screen, 0.0, Color32::from_black_alpha((110.0 * open) as u8));
                     ui.allocate_rect(screen, Sense::click()).clicked()
                 });
@@ -414,7 +443,7 @@ impl GameUi {
                 }
             }
             let layer = LayerId::new(Order::Foreground, Id::new("sheet"));
-            egui::Area::new(layer.id).order(Order::Foreground).fixed_pos(sheet_rect.min).constrain(false).show(ctx, |ui| {
+            egui::Area::new(layer.id).movable(false).order(Order::Foreground).fixed_pos(sheet_rect.min).constrain(false).show(ctx, |ui| {
                 let p = ui.painter();
                 let r = Rect::from_min_size(sheet_rect.min, sheet_rect.size() + Vec2::new(0.0, 20.0));
                 p.rect_filled(r.translate(Vec2::new(0.0, -4.0)), 18.0, Color32::from_black_alpha(40));
@@ -492,7 +521,7 @@ impl GameUi {
                 let body = Rect::from_min_max(sheet_rect.min + Vec2::new(14.0, 62.0), sheet_rect.max - Vec2::new(14.0, 12.0));
                 let interactive = !any_dialog && self.sheet.is_some();
                 let blayer = LayerId::new(Order::Foreground, Id::new(("sheetbody", name.as_str())));
-                egui::Area::new(blayer.id).order(Order::Foreground).fixed_pos(body.min).constrain(false).show(ctx, |ui| {
+                egui::Area::new(blayer.id).movable(false).order(Order::Foreground).fixed_pos(body.min).constrain(false).show(ctx, |ui| {
                     ui.set_clip_rect(body);
                     ui.set_width(body.width());
                     ui.set_max_height(body.height());
@@ -539,7 +568,12 @@ impl GameUi {
         if let Some((id, Dialog::Message { text, kind, buttons })) = &snap.dialog {
             let corner_busy = self.settings.animations && self.corner.busy(now);
             if !(in_battle && self.battle.busy()) && !evolving_busy && !corner_busy {
-                self.textbox.show(ctx, scene_rect, *id, text, *kind, *buttons, &self.settings, tx);
+                // In battle, messages appear in the battle's own text box.
+                let area = match self.battle.text_rect.filter(|_| in_battle) {
+                    Some(r) => Rect::from_min_max(Pos2::new(r.left() - 12.0, scene_rect.top()), Pos2::new(r.right() + 12.0, r.bottom() + 12.0)),
+                    None => scene_rect,
+                };
+                self.textbox.show(ctx, area, *id, text, *kind, *buttons, &self.settings, tx);
             }
         }
     }
@@ -591,7 +625,7 @@ impl GameUi {
             t::text(&p, Pos2::new(screen.center().x, screen.bottom() - screen.height() * 0.22), Align2::CENTER_CENTER, &format!("What? {} is evolving!", name(from)), t::bold(24.0), t::PAPER);
         }
         // A tap skips to the end.
-        egui::Area::new(Id::new("evolution_tap")).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+        egui::Area::new(Id::new("evolution_tap")).movable(false).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
             if ui.allocate_rect(screen, Sense::click()).clicked() && !done {
                 self.evolving = Some((from, to, now - dur as f64));
             }
@@ -610,7 +644,7 @@ impl GameUi {
         let top_gap = if card { ((area.height() - shown.y) / 2.0).max(0.0) * 0.4 } else { 0.0 };
         let origin = Pos2::new(area.center().x - shown.x / 2.0, area.top() + top_gap);
         ctx.set_transform_layer(layer, TSTransform::from_translation(origin.to_vec2()) * TSTransform::from_scaling(scale));
-        egui::Area::new(layer.id).order(layer.order).fixed_pos(Pos2::ZERO).constrain(false).show(ctx, |ui| {
+        egui::Area::new(layer.id).movable(false).order(layer.order).fixed_pos(Pos2::ZERO).constrain(false).show(ctx, |ui| {
             let local = Rect::from_min_size(Pos2::ZERO, size);
             ui.set_clip_rect(local.expand(400.0));
             ui.set_min_size(size);
@@ -633,7 +667,9 @@ impl GameUi {
     fn dock(&mut self, ctx: &egui::Context, screen: Rect, scene_rect: Rect, sheets: &[&Form], snap: &Snapshot, wide: bool) {
         let dock = Rect::from_min_max(Pos2::new(scene_rect.left(), screen.bottom() - DOCK_H), Pos2::new(scene_rect.right(), screen.bottom()));
         let has_menu = snap.forms.iter().any(|f| f.var == self.scene && f.visible && !f.menu.is_empty());
-        egui::Area::new(Id::new("dock")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+        // Positioned at the dock itself (an Area at the origin would grow to cover the screen).
+        egui::Area::new(Id::new("dock")).movable(false).order(Order::Middle).fixed_pos(dock.min).show(ctx, |ui| {
+            ui.set_min_size(dock.size());
             let p = ui.painter();
             p.rect_filled(dock, 0.0, Color32::from_black_alpha(60));
             let mut x = dock.left() + 10.0;

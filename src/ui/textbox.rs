@@ -47,7 +47,7 @@ impl TextBox {
         let catch_layer = egui::LayerId::new(Order::Foreground, Id::new(("tb_catch", id)));
         ctx.move_to_top(catch_layer);
         ctx.move_to_top(egui::LayerId::new(Order::Foreground, Id::new(("tb", id))));
-        let tapped = egui::Area::new(Id::new(("tb_catch", id)))
+        let tapped = egui::Area::new(Id::new(("tb_catch", id))).movable(false)
             .order(Order::Foreground)
             .fixed_pos(Pos2::ZERO)
             .show(ctx, |ui| ui.allocate_rect(ctx.screen_rect(), Sense::click()).clicked())
@@ -83,7 +83,7 @@ impl TextBox {
             Rect::from_min_size(Pos2::new(area.center().x - width / 2.0, area.bottom() - height - 12.0), Vec2::new(width, height))
         };
 
-        egui::Area::new(Id::new(("tb", id))).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+        egui::Area::new(Id::new(("tb", id))).movable(false).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
             let p = ui.painter().clone();
             // Slide up a little as it appears.
             let appear = ctx.animate_bool_with_time(Id::new(("tb_in", id)), true, if settings.animations { 0.12 } else { 0.0 });

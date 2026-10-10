@@ -11,6 +11,31 @@ fn find(dir: &Path, name: &str) -> Option<PathBuf> {
 }
 
 fn main() {
+    // Android: the audio backend (Oboe) is C++; link the NDK's C++ runtime statically so the
+    // APK needs no libc++_shared.so.
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
+        println!("cargo:rerun-if-env-changed=ANDROID_NDK_HOME");
+        let ndk = std::env::var_os("ANDROID_NDK_HOME").map(PathBuf::from).expect("ANDROID_NDK_HOME");
+        let triple = match std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() {
+            Ok("aarch64") => "aarch64-linux-android",
+            Ok("arm") => "arm-linux-androideabi",
+            Ok("x86_64") => "x86_64-linux-android",
+            _ => "i686-linux-android",
+        };
+        // Copy just the two C++ archives into their own folder: putting the NDK's sysroot lib
+        // folder on the search path would also make `-lc` pick up the static libc.a.
+        let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap()).join("cxx");
+        std::fs::create_dir_all(&out).unwrap();
+        let prebuilt = ndk.join("toolchains/llvm/prebuilt");
+        let host = std::fs::read_dir(&prebuilt).unwrap().flatten().next().expect("NDK prebuilt toolchain").path();
+        let lib = host.join("sysroot/usr/lib").join(triple);
+        for a in ["libc++_static.a", "libc++abi.a"] {
+            std::fs::copy(lib.join(a), out.join(a)).unwrap();
+        }
+        println!("cargo:rustc-link-search=native={}", out.display());
+        println!("cargo:rustc-link-lib=static=c++_static");
+        println!("cargo:rustc-link-lib=static=c++abi");
+    }
     println!("cargo:rerun-if-env-changed=POKEGAME_DIR");
     println!("cargo:rustc-check-cfg=cfg(has_bundle)");
     if std::env::var_os("CARGO_FEATURE_BUNDLED").is_none() {

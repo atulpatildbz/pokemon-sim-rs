@@ -100,7 +100,7 @@ impl Title {
         // Menu.
         let latest = slots::latest();
         let sums = self.summaries(now);
-        let bw = col_w.min(360.0);
+        let bw = (col_w - 32.0).min(360.0);
         let mut y = logo_y + big * 2.3;
         let row = 58.0;
         let mut button = |ui: &mut egui::Ui, label: &str, kind: t::ButtonKind, enabled: bool| {

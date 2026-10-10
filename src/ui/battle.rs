@@ -62,6 +62,8 @@ pub struct BattleView {
     caught: bool,
     bag_open: bool,
     was_active: bool,
+    /// Where the battle text box was drawn last frame (game messages go there too).
+    pub text_rect: Option<Rect>,
 }
 
 fn si(s: Side) -> usize {
@@ -95,8 +97,16 @@ impl Default for BattleView {
             caught: false,
             bag_open: false,
             was_active: false,
+            text_rect: None,
         }
     }
+}
+
+/// The player's POKéMON is out: its name label is up and filled, and it has a sprite. (After
+/// loading a save the program leaves an empty Label2 visible.)
+fn own_chosen(f4: &Form) -> bool {
+    let l = f4.c("Label2");
+    l.visible && !l.caption.trim().is_empty() && f4.c("ListView2").list_items.first().is_some_and(|it| it.image_index >= 0)
 }
 
 fn form<'a>(snap: &'a Snapshot, var: &str) -> Option<&'a Form> {
@@ -288,7 +298,7 @@ impl BattleView {
         };
         self.enemy_species = lv("ListView3");
         let own = lv("ListView2");
-        let own_out = f4.c("Label2").visible && own > 0;
+        let own_out = own_chosen(f4) && own > 0;
         self.own_species = if own_out { own } else { 0 };
         for (i, name) in [(0, "Gauge1"), (1, "Gauge2")] {
             let (v, max) = g(name);
@@ -330,6 +340,7 @@ impl BattleView {
         let area = area.translate(Vec2::new(0.0, spare * 0.5));
         let field = Rect::from_min_size(area.min, Vec2::new(area.width(), field_h));
         let text_rect = Rect::from_min_size(Pos2::new(area.left(), field.bottom() + 8.0), Vec2::new(area.width(), text_h));
+        self.text_rect = Some(text_rect);
         let controls = Rect::from_min_max(Pos2::new(area.left(), text_rect.bottom() + 8.0), Pos2::new(area.right(), (text_rect.bottom() + 8.0 + controls_h).min(area.bottom())));
 
         // ---------------- field
@@ -370,7 +381,7 @@ impl BattleView {
         let f5 = form(snap, "Form5");
         let end_visible = f4.c("EndButton").visible;
         let moves_visible = f4.c("RadioGroup1").visible && f4.c("Button1").visible;
-        let own_chosen = f4.c("Label2").visible;
+        let own_chosen = own_chosen(f4);
         let bag_items: Vec<(String, String, String, bool)> = f5
             .map(|f| {
                 [("Button1", "POKé BALL", "PokeBallsLbl"), ("Button2", "GREAT BALL", "GreatBallsLbl"), ("Button3", "ULTRA BALL", "UltraBallsLbl"), ("Button4", "MASTER BALL", "MasterBallsLbl"), ("Button5", "POTION", "PotionsLbl"), ("Button6", "SUPER POTION", "SuperPotionsLbl")]
@@ -454,7 +465,7 @@ impl BattleView {
             // The battle is over: keep its last line on screen.
             return form(snap, "Form7").and_then(|f| f.c("Memo1").items.last().cloned()).unwrap_or_default();
         }
-        if !f4.c("Label2").visible {
+        if !own_chosen(f4) {
             return "Choose a POKéMON to send out!".into();
         }
         format!("What will {own_name} do?")
@@ -629,7 +640,7 @@ impl BattleView {
         if self.enemy_species > 0 {
             hp_box(p, enemy_box, &ename, &elv, ehp, self.hp[1].max, false, f4.c("Image1").visible);
         }
-        if self.own_species > 0 && f4.c("Label2").visible {
+        if self.own_species > 0 && own_chosen(f4) {
             let ohp = self.hp[0].value(now, if settings.animations { 0.8 } else { 0.0 });
             let (oname, olv) = split_name_level(&f4.c("Label2").caption);
             let slide = (1.0 - send) * box_w;

@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Build the Android APK (arm64) and install it on a connected device.
+# Needs: Android SDK (platform android-35, build-tools), NDK, `rustup target add
+# aarch64-linux-android`, `cargo install cargo-ndk`. The game files are compiled in
+# (feature `bundled`, from $POKEGAME_DIR or ../downloads/pokegame/extracted).
+# Usage: scripts/build-android.sh [--no-install]
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+SDK="${ANDROID_HOME:-/opt/homebrew/share/android-commandlinetools}"
+export ANDROID_HOME="$SDK"
+export ANDROID_NDK_HOME="${ANDROID_NDK_HOME:-$(ls -d "$SDK"/ndk/* | sort -V | tail -1)}"
+BT="$(ls -d "$SDK"/build-tools/* | sort -V | tail -1)"
+PLATFORM="$(ls -d "$SDK"/platforms/android-* | sort -V | tail -1)/android.jar"
+OUT=target/android
+APK="$OUT/pokegame.apk"
+
+cargo ndk -t arm64-v8a -P 26 build --release --lib
+
+rm -rf "$OUT" && mkdir -p "$OUT/flat" "$OUT/stage/lib/arm64-v8a"
+"$BT/aapt2" compile --dir android/res -o "$OUT/flat"
+"$BT/aapt2" link -o "$OUT/unsigned.apk" -I "$PLATFORM" --manifest android/AndroidManifest.xml "$OUT"/flat/*.flat
+cp target/aarch64-linux-android/release/libpokegame.so "$OUT/stage/lib/arm64-v8a/"
+(cd "$OUT/stage" && zip -q -r ../unsigned.apk lib)
+"$BT/zipalign" -f -p 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
+"$BT/apksigner" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android --key-pass pass:android \
+    --ks-key-alias androiddebugkey --out "$APK" "$OUT/aligned.apk"
+echo "Built $APK ($(du -h "$APK" | cut -f1))"
+
+if [[ "${1:-}" != "--no-install" ]] && adb get-state >/dev/null 2>&1; then
+    adb install -r "$APK"
+    adb shell am start -n com.atulpatildbz.pokegame/android.app.NativeActivity >/dev/null
+    echo "Installed and started on $(adb shell getprop ro.product.model | tr -d '\r')"
+fi

@@ -26,6 +26,18 @@ Text measurement (the game positions HP bars from label widths) uses advance-wid
 MS Sans Serif / Arial compiled into the program (`src/game/font_metrics.rs`), so the game behaves
 identically on systems without those fonts.
 
+## Android
+
+    scripts/build-android.sh          # builds target/android/pokegame.apk, installs + starts it via adb
+
+Needs the Android SDK (platform + build-tools), the NDK, `rustup target add aarch64-linux-android`
+and `cargo install cargo-ndk`; the script finds them under `$ANDROID_HOME` (default: Homebrew's
+`android-commandlinetools`). The APK is a NativeActivity (no Java), signed with
+`~/.android/debug.keystore`, with the game files compiled in. Saves, settings and custom music
+live in the app's internal storage. The launcher icon is drawn in code (`src/ui/icon.rs`;
+regenerate with `GEN_ICONS=1 cargo test --test icons`). Two vendored one-line patches make egui
+behave on phones (see `[patch.crates-io]` in `Cargo.toml`).
+
 ## How it is faithful
 
 - **Logic**: every event handler is a 1:1 port of the original (addresses cited in the source).

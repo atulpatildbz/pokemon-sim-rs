@@ -4,7 +4,7 @@
 //!   `wait <ms>` | `click <Form> <Control>` | `dblclick <Form> <Control>` | `change <Form> <Control>` | `menu <Form> <Item>` |
 //!   `select <Form> <Control> <index>` | `text <Form> <Control> <text>` | `answer <modal result>` |
 //!   `file <path>` (answers the next file dialog) | `shot <name>` | `quit` |
-//!   `ui <command>` (front-end only, see `GameUi::debug_command`: `sheet <name>`, `cards <a/b>`)
+//!   `tap <x> <y>` (pointer tap, points) | `ui <command>` (front-end only, see `GameUi::debug_command`: `sheet <name>`, `cards <a/b>`)
 
 use crate::vcl::runtime::{DialogAnswer, Event, Input, Snapshot};
 use std::collections::VecDeque;
@@ -21,6 +21,8 @@ pub struct Harness {
     shot_count: usize,
     /// `ui ...` commands for the front-end, drained by the app each frame.
     pub ui_commands: Vec<String>,
+    /// Pointer events to inject (`tap x y` in points): press on one frame, release on the next.
+    taps: VecDeque<(egui::Pos2, bool)>,
 }
 
 impl Harness {
@@ -38,11 +40,20 @@ impl Harness {
             pending_file: None,
             shot_count: 0,
             ui_commands: Vec::new(),
+            taps: VecDeque::new(),
+        }
+    }
+
+    /// eframe raw-input hook: feed one queued pointer event per frame.
+    pub fn inject(&mut self, raw: &mut egui::RawInput) {
+        if let Some((pos, pressed)) = self.taps.pop_front() {
+            raw.events.push(egui::Event::PointerMoved(pos));
+            raw.events.push(egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() });
         }
     }
 
     pub fn active(&self) -> bool {
-        !self.script.is_empty() || self.pending_shot.is_some()
+        !self.script.is_empty() || self.pending_shot.is_some() || !self.taps.is_empty()
     }
 
     /// Run due script commands. Returns true if the app should quit.
@@ -98,6 +109,13 @@ impl Harness {
             "shot" => {
                 self.pending_shot = Some(s(1));
                 ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+            }
+            "tap" => {
+                if let (Ok(x), Ok(y)) = (s(1).parse::<f32>(), s(2).parse::<f32>()) {
+                    let p = egui::pos2(x, y);
+                    self.taps.push_back((p, true));
+                    self.taps.push_back((p, false));
+                }
             }
             "quit" => return true,
             "ui" => self.ui_commands.push(line[3..].to_string()),
