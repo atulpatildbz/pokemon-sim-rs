@@ -1,0 +1,4 @@
+/target
+# Game assets are extracted at runtime from the user's own copy; never commit them.
+*.exe
+*.dat

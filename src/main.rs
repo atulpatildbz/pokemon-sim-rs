@@ -1,0 +1,195 @@
+//! POKéMON Simulator V4.5 — Rust/egui front-end.
+//!
+//! Usage: `pokegame [GAME_DIR] [SAVE.pgs]`
+//! GAME_DIR must contain PokeGame.exe and POKéGAME.dat from your own copy of PokeGame32.exe
+//! (extract the installer with e.g. `7z x PokeGame32.exe`). Defaults to $POKEGAME_DIR, then the
+//! current directory, then asks with a folder picker.
+
+use pokegame::assets::{pe, Assets};
+use pokegame::debug::Harness;
+use pokegame::game::world::World;
+use pokegame::vcl::render::{install_fonts, Renderer};
+use pokegame::vcl::runtime::{Bridge, Dialog, DialogAnswer, Input, Snapshot};
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::{channel, Sender};
+use std::sync::{Arc, Mutex};
+
+fn has_game(dir: &Path) -> bool {
+    std::fs::read_dir(dir)
+        .map(|it| it.flatten().any(|e| e.file_name().to_string_lossy().eq_ignore_ascii_case("PokeGame.exe")))
+        .unwrap_or(false)
+}
+
+fn find_game_dir(arg: Option<String>) -> Option<PathBuf> {
+    let candidates = [
+        arg.map(PathBuf::from),
+        std::env::var_os("POKEGAME_DIR").map(PathBuf::from),
+        std::env::current_dir().ok(),
+        std::env::current_exe().ok().and_then(|p| p.parent().map(Path::to_path_buf)),
+    ];
+    if let Some(d) = candidates.into_iter().flatten().find(|d| has_game(d)) {
+        return Some(d);
+    }
+    rfd::FileDialog::new().set_title("Select the folder containing PokeGame.exe and POKéGAME.dat").pick_folder()
+}
+
+/// The original DATA section bytes (VA 0x48e000), for the emulated data segment.
+fn data_section(game_dir: &Path) -> Vec<u8> {
+    let exe = std::fs::read_dir(game_dir)
+        .ok()
+        .and_then(|it| it.flatten().find(|e| e.file_name().to_string_lossy().eq_ignore_ascii_case("PokeGame.exe")))
+        .and_then(|e| std::fs::read(e.path()).ok())
+        .unwrap_or_default();
+    let Ok(p) = pe::Pe::parse(exe) else { return Vec::new() };
+    p.sections
+        .iter()
+        .find(|s| s.name == "DATA")
+        .map(|s| p.data[s.raw_ptr as usize..(s.raw_ptr + s.raw_size) as usize].to_vec())
+        .unwrap_or_default()
+}
+
+struct App {
+    assets: Arc<Assets>,
+    snapshot: Arc<Mutex<Snapshot>>,
+    tx: Sender<Input>,
+    renderer: Renderer,
+    answered: HashSet<u64>,
+    screen: (i32, i32),
+    harness: Harness,
+}
+
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        let snap = self.snapshot.lock().unwrap().clone();
+        if snap.quit {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            return;
+        }
+        let size = ctx.screen_rect().size();
+        let screen = (size.x as i32, size.y as i32);
+        if screen != self.screen {
+            self.screen = screen;
+            let _ = self.tx.send(Input::ScreenSize { width: screen.0, height: screen.1 });
+        }
+        // Closing the desktop window = closing the main game window (saves, like the original).
+        if ctx.input(|i| i.viewport().close_requested()) {
+            let main_visible = snap.forms.iter().any(|f| f.var == "Form4" && f.visible);
+            if main_visible && snap.dialog.is_none() {
+                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+                let _ = self.tx.send(Input::CloseForm { form: "Form4".into() });
+            } else {
+                let _ = self.tx.send(Input::Quit);
+            }
+        }
+        if self.harness.tick(ctx, &snap, &self.tx) {
+            let _ = self.tx.send(Input::Quit);
+        }
+        // Native file dialogs for TOpenDialog / TSaveDialog.Execute.
+        if let Some((id, Dialog::File { save, filter, default_ext, initial, .. })) = &snap.dialog {
+            if let Some(path) = self.harness.pending_file.take() {
+                self.answered.insert(*id);
+                let _ = self.tx.send(Input::Answer { id: *id, answer: DialogAnswer::File(Some(path)) });
+            } else if self.answered.insert(*id) {
+                let mut d = rfd::FileDialog::new();
+                let mut parts = filter.split('|');
+                while let (Some(name), Some(pat)) = (parts.next(), parts.next()) {
+                    let exts: Vec<String> = pat
+                        .split(';')
+                        .filter_map(|p| p.trim().strip_prefix("*."))
+                        .filter(|e| *e != "*")
+                        .map(str::to_string)
+                        .collect();
+                    if !exts.is_empty() {
+                        d = d.add_filter(name, &exts);
+                    }
+                }
+                if !initial.is_empty() {
+                    let p = Path::new(initial);
+                    if let Some(dir) = p.parent() {
+                        d = d.set_directory(dir);
+                    }
+                    if let Some(n) = p.file_name() {
+                        d = d.set_file_name(n.to_string_lossy());
+                    }
+                }
+                let picked = if *save { d.save_file() } else { d.pick_file() };
+                let path = picked.map(|mut p| {
+                    // TSaveDialog.DefaultExt: appended when the user typed no extension.
+                    let ext = default_ext.trim_start_matches('*').trim_start_matches('.');
+                    if *save && p.extension().is_none() && !ext.is_empty() {
+                        p.set_extension(ext);
+                    }
+                    p.to_string_lossy().into_owned()
+                });
+                let _ = self.tx.send(Input::Answer { id: *id, answer: DialogAnswer::File(path) });
+            }
+        }
+        self.renderer.show(ctx, &snap, &self.assets, &self.tx);
+    }
+}
+
+fn main() {
+    let mut args = std::env::args().skip(1);
+    let first = args.next();
+    // A .pgs argument is a save file to load (TForm3.FormHide: ParamStr), not the game folder.
+    let (dir_arg, mut params): (Option<String>, Vec<String>) = match first {
+        Some(a) if Path::new(&a).is_dir() => (Some(a), Vec::new()),
+        Some(a) => (None, vec![a]),
+        None => (None, Vec::new()),
+    };
+    params.extend(args);
+    let Some(game_dir) = find_game_dir(dir_arg) else {
+        eprintln!("PokeGame.exe / POKéGAME.dat not found.");
+        std::process::exit(1);
+    };
+    let assets = match Assets::load(&game_dir) {
+        Ok(a) => Arc::new(a),
+        Err(e) => {
+            rfd::MessageDialog::new().set_title("POKéMON Simulator").set_description(&e).show();
+            std::process::exit(1);
+        }
+    };
+    let data = data_section(&game_dir);
+    let snapshot = Arc::new(Mutex::new(Snapshot::default()));
+    let (tx, rx) = channel();
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_title("POKéMON Simulator")
+            .with_inner_size([1024.0, 740.0])
+            .with_min_inner_size([640.0, 480.0]),
+        ..Default::default()
+    };
+    let snap2 = snapshot.clone();
+    let assets2 = assets.clone();
+    let result = eframe::run_native(
+        "POKéMON Simulator",
+        options,
+        Box::new(move |cc| {
+            install_fonts(&cc.egui_ctx);
+            let ctx = cc.egui_ctx.clone();
+            let bridge = Bridge::new(snap2.clone(), rx, Box::new(move || ctx.request_repaint()));
+            let assets_t = assets2.clone();
+            std::thread::Builder::new()
+                .name("delphi-main".into())
+                .spawn(move || {
+                    let mut w = World::new(assets_t, &data, Some(bridge));
+                    w.params = params;
+                    w.run();
+                })
+                .expect("spawn logic thread");
+            Ok(Box::new(App {
+                assets: assets2,
+                snapshot: snap2,
+                tx,
+                renderer: Renderer::default(),
+                answered: HashSet::new(),
+                screen: (0, 0),
+                harness: Harness::from_env(),
+            }))
+        }),
+    );
+    if let Err(e) = result {
+        eprintln!("{e}");
+    }
+}

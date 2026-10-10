@@ -1,0 +1,17 @@
+[package]
+name = "pokegame"
+version = "0.1.0"
+edition = "2021"
+description = "Faithful Rust port of BirdieSoft's POKéMON Simulator V4.5 (Delphi 7, 2004)"
+
+[dependencies]
+eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
+egui = "0.31"
+ttf-parser = "0.25"
+rfd = "0.15"
+
+[profile.release]
+opt-level = 3
+
+[profile.dev.package."*"]
+opt-level = 2
