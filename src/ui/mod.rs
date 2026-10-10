@@ -5,6 +5,7 @@
 //! Forms without a bespoke screen yet are hosted generically: drawn by the VCL renderer in the
 //! game skin, scaled to fit their scene or sheet.
 
+pub mod battle;
 pub mod settings;
 pub mod textbox;
 pub mod theme;
@@ -12,7 +13,7 @@ pub mod theme;
 use crate::assets::Assets;
 use crate::vcl::model::{Form, MenuItem};
 use crate::vcl::render::{strip_amp, Renderer, Skin, GAME_FACE, MENU_HEIGHT};
-use crate::vcl::runtime::{Dialog, Input, Snapshot};
+use crate::vcl::runtime::{Dialog, Fx, Input, Snapshot};
 use egui::emath::TSTransform;
 use egui::{Align2, Color32, Id, LayerId, Order, Pos2, Rect, Sense, Vec2};
 use settings::{Settings, TextSpeed};
@@ -26,6 +27,7 @@ const DOCK_H: f32 = 64.0;
 /// Sheets that are not forms.
 const OPTIONS: &str = "#options";
 const MENU: &str = "#menu";
+pub const BATTLE_INFO: &str = "#battleinfo";
 
 pub struct GameUi {
     pub settings: Settings,
@@ -40,6 +42,10 @@ pub struct GameUi {
     menu_path: Vec<String>,
     scene: String,
     scene_changed_at: f64,
+    battle: battle::BattleView,
+    /// A form the program raised while a battle was still replaying; opened afterwards.
+    pending_raise: Option<String>,
+    own_was_out: bool,
 }
 
 impl GameUi {
@@ -58,6 +64,9 @@ impl GameUi {
             menu_path: Vec::new(),
             scene: String::new(),
             scene_changed_at: 0.0,
+            battle: battle::BattleView::default(),
+            pending_raise: None,
+            own_was_out: false,
         };
         ui.apply_visuals(ctx);
         ui
@@ -77,7 +86,7 @@ impl GameUi {
         self.apply_visuals(ctx);
     }
 
-    pub fn show(&mut self, ctx: &egui::Context, snap: &Snapshot, assets: &Assets, tx: &Sender<Input>) {
+    pub fn show(&mut self, ctx: &egui::Context, snap: &Snapshot, fx: Vec<Fx>, assets: &Assets, tx: &Sender<Input>) {
         if ctx.input(|i| i.key_pressed(egui::Key::F2)) {
             let on = !self.settings.classic;
             self.set_classic(ctx, on);
@@ -89,6 +98,11 @@ impl GameUi {
             return;
         }
         self.renderer.skin = Skin::Game;
+        if battle::active(snap) {
+            self.battle.feed(fx);
+        } else {
+            self.battle = battle::BattleView::default();
+        }
         self.game(ctx, snap, assets, tx);
     }
 
@@ -147,13 +161,20 @@ impl GameUi {
             v
         };
 
-        // A form the program just brought to the front opens as the sheet.
+        // A form the program just brought to the front opens as the sheet (after any battle replay).
         if snap.raise_seq != self.raise_seq {
             self.raise_seq = snap.raise_seq;
             if let Some(top) = snap.z_order.last() {
                 // The battle log comes forward on every battle; it stays a chip instead of covering the fight.
                 if top != "Form7" && sheets.iter().any(|f| f.var == *top) {
-                    self.sheet = Some(top.clone());
+                    self.pending_raise = Some(top.clone());
+                }
+            }
+        }
+        if !self.battle.busy() {
+            if let Some(top) = self.pending_raise.take() {
+                if sheets.iter().any(|f| f.var == top) {
+                    self.sheet = Some(top);
                 }
             }
         }
@@ -188,7 +209,25 @@ impl GameUi {
 
         // Scene.
         let scene_fade = ctx.animate_bool_with_time(Id::new(("scene_in", self.scene.as_str())), true, anim(0.35));
-        if let Some(form) = visible.iter().find(|f| f.var == self.scene) {
+        let in_battle = self.scene == "Form4" && battle::active(snap);
+        if in_battle {
+            let mut req = None;
+            egui::Area::new(Id::new("battle")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+                ui.set_clip_rect(scene_rect);
+                ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
+                    req = self.battle.show(ui, scene_rect, snap, &mut self.renderer, assets, &self.settings, tx);
+                });
+            });
+            if let Some(battle::Request::OpenSheet(s)) = req {
+                self.sheet = Some(s);
+            }
+            // Picking a POKéMON from Statistics sends it out: back to the fight.
+            let out = self.battle.own_out();
+            if out && !self.own_was_out && self.sheet.as_deref() == Some("Form5") {
+                self.sheet = None;
+            }
+            self.own_was_out = out;
+        } else if let Some(form) = visible.iter().find(|f| f.var == self.scene) {
             let interactive = !any_dialog || modal_form.as_deref() == Some(form.var.as_str());
             self.host_form(ctx, form, scene_rect.shrink(8.0), LayerId::new(Order::Middle, Id::new(("scene", &form.var))), interactive && (self.sheet.is_none() || wide), assets, tx, scene_fade, true);
         }
@@ -229,6 +268,7 @@ impl GameUi {
                 let title = match name.as_str() {
                     OPTIONS => "Options".to_string(),
                     MENU => "Menu".to_string(),
+                    BATTLE_INFO => "Battle Info".to_string(),
                     v => sheets.iter().find(|f| f.var == v).map(|f| strip_amp(&f.caption)).unwrap_or_default(),
                 };
                 if !wide {
@@ -254,6 +294,9 @@ impl GameUi {
                             ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| self.menu_body(ui, form, tx, !any_dialog));
                         }
                     }
+                    BATTLE_INFO => {
+                        ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| battle_info_body(ui, snap));
+                    }
                     _ => {}
                 }
             });
@@ -267,9 +310,11 @@ impl GameUi {
             }
         }
 
-        // Message boxes.
+        // Message boxes wait until the battle has replayed what led to them.
         if let Some((id, Dialog::Message { text, kind, buttons })) = &snap.dialog {
-            self.textbox.show(ctx, scene_rect, *id, text, *kind, *buttons, &self.settings, tx);
+            if !(in_battle && self.battle.busy()) {
+                self.textbox.show(ctx, scene_rect, *id, text, *kind, *buttons, &self.settings, tx);
+            }
         }
     }
 
@@ -464,6 +509,36 @@ impl GameUi {
         t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, "F2 switches between game and classic look.", t::body(16.0), t::GREY);
         let _ = MENU_HEIGHT;
     }
+}
+
+/// Battle Info sheet: the enemy's moves, then the whole battle log.
+fn battle_info_body(ui: &mut egui::Ui, snap: &Snapshot) {
+    let width = ui.available_width();
+    let f4 = snap.forms.iter().find(|f| f.var == "Form4");
+    if let Some(f4) = f4.filter(|f| f.c("GroupBox1").visible) {
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 28.0), Sense::hover());
+        t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, &strip_amp(&f4.c("GroupBox2").caption), t::bold(19.0), t::INK);
+        let half = (width - 8.0) / 2.0;
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 2.0 * 30.0 + 8.0), Sense::hover());
+        for (k, l) in ["Label4", "Label5", "Label6", "Label7"].iter().enumerate() {
+            let cell = Rect::from_min_size(r.min + Vec2::new((k % 2) as f32 * (half + 8.0), (k / 2) as f32 * 34.0), Vec2::new(half, 30.0));
+            ui.painter().rect_filled(cell, 6.0, Color32::WHITE);
+            ui.painter().rect_stroke(cell, 6.0, egui::Stroke::new(1.5, t::FRAME_INNER), egui::StrokeKind::Inside);
+            t::text(ui.painter(), cell.left_center() + Vec2::new(10.0, 0.0), Align2::LEFT_CENTER, &strip_amp(&f4.c(l).caption), t::body(18.0), t::INK);
+        }
+        ui.add_space(10.0);
+    }
+    let (r, _) = ui.allocate_exact_size(Vec2::new(width, 28.0), Sense::hover());
+    t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, "Battle log", t::bold(19.0), t::INK);
+    let lines: Vec<String> = snap.forms.iter().find(|f| f.var == "Form7").map(|f| f.c("Memo1").items.clone()).unwrap_or_default();
+    egui::Frame::new().fill(Color32::WHITE).corner_radius(8.0).stroke(egui::Stroke::new(1.5, t::FRAME_INNER)).inner_margin(10.0).show(ui, |ui| {
+        ui.set_width(width - 20.0);
+        egui::ScrollArea::vertical().stick_to_bottom(true).id_salt("battle_log").show(ui, |ui| {
+            for l in &lines {
+                ui.label(egui::RichText::new(l).font(t::body(18.0)).color(t::INK));
+            }
+        });
+    });
 }
 
 fn ease_out(x: f32) -> f32 {

@@ -234,6 +234,7 @@ fn list_view1_click(w: &mut World) -> R<()> {
             w.set_caption(FORM4, "Label8", &format!("{hp}/{hp}"));
             w.set_gauge_max(FORM4, "Gauge1", hp);
             w.set_gauge_progress(FORM4, "Gauge1", hp);
+            w.fx(Fx::SendOut { species, hp }); // presentation hook (no state)
             w.show_c(FORM4, "Label2");
             w.show_c(FORM4, "Label8");
             w.m.set_fights(w.m.fights().wrapping_add(1));
@@ -264,6 +265,7 @@ fn list_view1_click(w: &mut World) -> R<()> {
             w.set_gauge_max(FORM4, "Gauge1", hp);
             w.m.set_cur_pkmn(idx);
             w.set_gauge_progress(FORM4, "Gauge1", hp);
+            w.fx(Fx::SendOut { species, hp }); // presentation hook (no state)
             w.show_c(FORM4, "Label2");
             w.show_c(FORM4, "Label8");
         }
@@ -422,6 +424,8 @@ fn potion_click(w: &mut World, amount: i32, sup: bool) -> R<()> {
         }
         let s = crate::cat!(&w.m.pkmn_name(w.m.pc_species(cur)), " recovered ", &(w.m.own_hp() - old).to_string(), " HP!")?;
         w.log(&s);
+        let hp = w.m.own_hp();
+        w.fx(Fx::Hp { side: Side::Own, hp, max }); // presentation hook (no state)
         super::unit4::do_opp_attack(w)?;
     }
     Ok(())
@@ -430,6 +434,8 @@ fn potion_click(w: &mut World, amount: i32, sup: bool) -> R<()> {
 /// @00480868 Master Ball: always catches.
 fn button4_click(w: &mut World) -> R<()> {
     w.log("You threw a Master Ball.");
+    w.fx(Fx::BallThrow); // presentation hook (no state)
+    w.fx(Fx::Caught(true));
     let sp = w.m.enemy_species();
     let s = crate::cat!("You caught ", &w.m.pkmn_name(sp), "!")?;
     w.log(&s);
@@ -451,6 +457,7 @@ enum Ball {
 /// @00480990 / @00480b88 / @00480d80
 fn ball_click(w: &mut World, throw: &str, n: i32, ball: Ball) -> R<()> {
     w.log(throw);
+    w.fx(Fx::BallThrow); // presentation hook (no state)
     match ball {
         Ball::Poke => w.m.set_poke_balls(w.m.poke_balls().wrapping_sub(1)),
         Ball::Great => w.m.set_great_balls(w.m.great_balls().wrapping_sub(1)),
@@ -462,6 +469,7 @@ fn ball_click(w: &mut World, throw: &str, n: i32, ball: Ball) -> R<()> {
         .sub(F80::from_i64(w.m.enemy_hp() as i64).add(F80::from_f32(0.5)))
         .int();
     let sp = w.m.enemy_species();
+    w.fx(Fx::Caught(v.cmp(F80::ZERO).is_gt())); // presentation hook (no state)
     if v.cmp(F80::ZERO).is_gt() {
         let s = crate::cat!("You caught ", &w.m.pkmn_name(sp), "!")?;
         w.log(&s);

@@ -195,7 +195,7 @@ impl Renderer {
         }
     }
 
-    fn texture(&mut self, ctx: &egui::Context, assets: &Assets, key: &str, index: i32) -> Option<TextureHandle> {
+    pub fn texture(&mut self, ctx: &egui::Context, assets: &Assets, key: &str, index: i32) -> Option<TextureHandle> {
         let k = (key.to_string(), index);
         if let Some(t) = self.textures.get(&k) {
             return Some(t.clone());

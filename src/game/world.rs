@@ -8,7 +8,7 @@ use super::mem::{Exc, Mem, R};
 use crate::assets::Assets;
 use crate::delphi::DelphiRandom;
 use crate::vcl::model::{Control, Form, Kind, ListItem, TColor};
-use crate::vcl::runtime::{Bridge, Dialog, DialogAnswer, Event, Input, MsgDlgType, Timers, MB_OK, MR_CANCEL};
+use crate::vcl::runtime::{Bridge, Dialog, DialogAnswer, Event, Fx, Input, MsgDlgType, Timers, MB_OK, MR_CANCEL};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -113,6 +113,8 @@ pub struct World {
     pub headless_log: Vec<String>,
     /// Scripted answers for headless runs (tests): button results / file names.
     pub headless_answers: Vec<DialogAnswer>,
+    /// Presentation effects not yet published (only collected when a front-end is attached).
+    fx_queue: Vec<Fx>,
 }
 
 impl World {
@@ -140,6 +142,7 @@ impl World {
             params: Vec::new(),
             headless_log: Vec::new(),
             headless_answers: Vec::new(),
+            fx_queue: Vec::new(),
         }
     }
 
@@ -220,6 +223,14 @@ impl World {
     /// Form7.Memo1.Lines.Add — the battle log.
     pub fn log(&mut self, s: &str) {
         self.memo_add(FORM7, "Memo1", s);
+        self.fx(Fx::Log(s.to_string()));
+    }
+
+    /// Record a presentation effect for the front-end. Never affects the program.
+    pub fn fx(&mut self, e: Fx) {
+        if self.bridge.is_some() {
+            self.fx_queue.push(e);
+        }
     }
 
     // ---- TGauge (Gauges.pas: SetProgress clamps to [MinValue, MaxValue]; SetMaxValue lowers Progress)
@@ -539,6 +550,7 @@ impl World {
             s.quit = self.terminated;
             s.generation += 1;
             s.media = self.media.clone();
+            s.fx.append(&mut self.fx_queue);
             drop(s);
             (b.repaint)();
         }

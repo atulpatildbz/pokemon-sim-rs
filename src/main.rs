@@ -79,7 +79,11 @@ struct App {
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let snap = self.snapshot.lock().unwrap().clone();
+        let (snap, fx) = {
+            let mut s = self.snapshot.lock().unwrap();
+            let fx = std::mem::take(&mut s.fx);
+            (s.clone(), fx)
+        };
         if snap.quit {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
@@ -143,7 +147,7 @@ impl eframe::App for App {
                 let _ = self.tx.send(Input::Answer { id: *id, answer: DialogAnswer::File(path) });
             }
         }
-        self.ui.show(ctx, &snap, &self.assets, &self.tx);
+        self.ui.show(ctx, &snap, fx, &self.assets, &self.tx);
     }
 }
 

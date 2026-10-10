@@ -86,8 +86,37 @@ pub struct Media {
     pub length: i64,
 }
 
+/// Which POKéMON an effect concerns.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Side {
+    Own,
+    Enemy,
+}
+
+/// Presentation events emitted by the ported handlers at the moment something happens, so the
+/// front-end can animate a turn step by step. Purely one-way: emitting never reads the RNG,
+/// branches, or touches game state, and nothing is recorded when running headless.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Fx {
+    /// A battle-log line (Form7.Memo1.Lines.Add).
+    Log(String),
+    /// A wild or trainer battle begins against `species` (1-based).
+    BattleStart { species: i32, hp: i32 },
+    /// The player's POKéMON enters the battle with full `hp`.
+    SendOut { species: i32, hp: i32 },
+    Attack(Side),
+    /// HP after a hit or a potion (not yet clamped at 0, like the program's own variable).
+    Hp { side: Side, hp: i32, max: i32 },
+    Faint(Side),
+    BallThrow,
+    Caught(bool),
+    LevelUp,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Snapshot {
+    /// Effects published since the front-end last drained them.
+    pub fx: Vec<Fx>,
     pub forms: Vec<Form>,
     pub dialog: Option<(u64, Dialog)>,
     /// Form variables, back to front.

@@ -282,6 +282,7 @@ pub fn start_wild_battle(w: &mut World, species: i32, level: i32) -> R<()> {
     w.set_gauge_max(FORM4, "Gauge2", hp);
     w.m.set_enemy_level(level as u8);
     w.set_gauge_progress(FORM4, "Gauge2", hp);
+    w.fx(Fx::BattleStart { species, hp }); // presentation hook (no state)
     let s = crate::cat!("Wild ", &w.m.pkmn_name(species), " appeared!")?;
     w.log(&s);
     let s = crate::cat!("Enemy ", &w.m.pkmn_name(species), " L.", &level.to_string())?;
@@ -313,6 +314,7 @@ pub fn start_trainer_battle(w: &mut World, species: i32, level: i32, trainer: &D
     w.set_caption(FORM4, "Label9", &format!("{hp}/{hp}"));
     w.set_gauge_max(FORM4, "Gauge2", hp);
     w.set_gauge_progress(FORM4, "Gauge2", hp);
+    w.fx(Fx::BattleStart { species, hp }); // presentation hook (no state)
     w.show(FORM7)?;
     let s = crate::cat!(trainer, " wants to fight!")?;
     w.log(&s);
@@ -736,6 +738,7 @@ pub fn do_own_attack(w: &mut World) -> R<()> {
     let mut dmg = Var::real(F80::from_i64(r as i64).add(
         F80::from_i64(power as i64).div(F80::from_f32(100.0)).mul(F80::from_i64(level as i64)),
     ));
+    w.fx(Fx::Attack(Side::Own)); // presentation hook (no state)
     let s = crate::cat!(&my_name, " used ", &w.m.move_name(mv), "!")?;
     w.log(&s);
     if is_crit {
@@ -767,6 +770,7 @@ pub fn do_own_attack(w: &mut World) -> R<()> {
     w.set_gauge_progress(FORM4, "Gauge2", hp);
     w.set_gauge_fore(FORM4, "Gauge2", CL_GREEN);
     let max = (w.m.enemy_level() as i32) * 10;
+    w.fx(Fx::Hp { side: Side::Enemy, hp, max }); // presentation hook (no state)
     if !hp_ratio_gt(hp, max, 0.5) {
         w.set_gauge_fore(FORM4, "Gauge2", CL_YELLOW);
     }
@@ -786,6 +790,7 @@ pub fn do_own_attack(w: &mut World) -> R<()> {
     w.show_c(FORM4, "EndButton");
     super::unit5::hide_buttons(w);
     w.hide_c(FORM4, "Button1");
+    w.fx(Fx::Faint(Side::Enemy)); // presentation hook (no state)
     let s = crate::cat!("Enemy ", &w.m.pkmn_name(enemy), " fainted!")?;
     w.log(&s);
     let el = w.m.enemy_level() as u32;
@@ -815,6 +820,7 @@ pub fn do_own_attack(w: &mut World) -> R<()> {
     }
     let new_level = w.m.pc_level(cur);
     if Var::byte(new_level).gt(old_level) {
+        w.fx(Fx::LevelUp); // presentation hook (no state)
         let s = crate::cat!(&my_name, " grew to level ", &new_level.to_string(), "!")?;
         w.log(&s);
     }
@@ -863,6 +869,7 @@ pub fn do_opp_attack(w: &mut World) -> R<()> {
     let mut dmg = Var::real(F80::from_i64(r as i64).add(
         F80::from_i64(power as i64).div(F80::from_f32(100.0)).mul(F80::from_i64(level as i64)),
     ));
+    w.fx(Fx::Attack(Side::Enemy)); // presentation hook (no state)
     let s = crate::cat!("Enemy ", &w.m.pkmn_name(enemy), " used ", &w.m.move_name(mv), "!")?;
     w.log(&s);
     if is_crit {
@@ -895,6 +902,7 @@ pub fn do_opp_attack(w: &mut World) -> R<()> {
     w.set_gauge_progress(FORM4, "Gauge1", hp);
     w.set_gauge_fore(FORM4, "Gauge1", CL_GREEN);
     let max = (w.m.pc_level(cur) as i32) * 10;
+    w.fx(Fx::Hp { side: Side::Own, hp, max }); // presentation hook (no state)
     if !hp_ratio_gt(hp, max, 0.5) {
         w.set_gauge_fore(FORM4, "Gauge1", CL_YELLOW);
     }
@@ -917,6 +925,7 @@ pub fn do_opp_attack(w: &mut World) -> R<()> {
     w.hide_c(FORM4, "Button1");
     w.m.set_fights(w.m.fights().wrapping_add(1));
     w.m.set_losses(w.m.losses().wrapping_add(1));
+    w.fx(Fx::Faint(Side::Own)); // presentation hook (no state)
     let s = crate::cat!(&w.m.pkmn_name(own), " fainted!")?;
     w.log(&s);
     let money = w.m.money();

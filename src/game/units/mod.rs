@@ -15,7 +15,7 @@ pub mod unit9;
 use super::mem::R;
 use super::world::*;
 use crate::delphi::{Var, F80};
-pub use crate::vcl::runtime::{MsgDlgType, MB_CANCEL, MB_NO, MB_OK, MB_YES, MR_YES};
+pub use crate::vcl::runtime::{Fx, MsgDlgType, Side, MB_CANCEL, MB_NO, MB_OK, MB_YES, MR_YES};
 
 pub const MB_YES_NO: u16 = MB_YES | MB_NO;
 
