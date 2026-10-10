@@ -7,11 +7,24 @@ and `../downloads/pokegame/PROGRESS.md` for the full log).
 ## Running
 
 You need your own copy of the game: extract `PokeGame32.exe` (an NSIS installer), e.g. `7z x PokeGame32.exe`,
-to get `PokeGame.exe` and `POKéGAME.dat`. Nothing copyrighted is embedded in this program — sprites,
-form layouts and game data are read from those files at start-up.
+to get `PokeGame.exe` and `POKéGAME.dat`.
 
-    cargo run --release -- /path/to/extracted        # or set POKEGAME_DIR
+**Single binary (default).** `cargo build --release` compiles those two files into the executable
+when it finds them (in `$POKEGAME_DIR`, or `../downloads/pokegame/extracted`):
+`target/release/pokegame` then runs from anywhere with no other files. This is for personal use
+only — the bundled files are copyrighted; don't publish such a binary.
+
+**Folder-reading binary.** `cargo build --release --no-default-features` (or a build that could
+not find the files) embeds nothing and reads the game folder at start-up: a folder argument,
+`$POKEGAME_DIR`, the folder picked last time, the current/executable directory, else it asks once.
+
+    cargo run --release                               # bundled build
+    cargo run --release -- /path/to/extracted         # use this folder instead
     cargo run --release -- save.pgs                   # load a save (like passing it to the original)
+
+Text measurement (the game positions HP bars from label widths) uses advance-width tables of
+MS Sans Serif / Arial compiled into the program (`src/game/font_metrics.rs`), so the game behaves
+identically on systems without those fonts.
 
 ## How it is faithful
 

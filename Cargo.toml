@@ -4,6 +4,13 @@ version = "0.1.0"
 edition = "2021"
 description = "Faithful Rust port of BirdieSoft's POKéMON Simulator V4.5 (Delphi 7, 2004)"
 
+[features]
+default = ["bundled"]
+# Compile the original PokeGame.exe / POKéGAME.dat into the binary when they are available
+# (personal builds only: they are copyrighted). Files come from $POKEGAME_DIR or
+# ../downloads/pokegame/extracted. `--no-default-features` builds a folder-reading binary.
+bundled = []
+
 [dependencies]
 eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
 egui = "0.31"

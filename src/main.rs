@@ -5,7 +5,7 @@
 //! (extract the installer with e.g. `7z x PokeGame32.exe`). Defaults to $POKEGAME_DIR, then the
 //! current directory, then asks with a folder picker.
 
-use pokegame::assets::{pe, Assets};
+use pokegame::assets::Assets;
 use pokegame::debug::Harness;
 use pokegame::game::world::World;
 use pokegame::ui::GameUi;
@@ -50,21 +50,6 @@ fn find_game_dir(arg: Option<String>) -> Option<PathBuf> {
         }
     }
     Some(picked)
-}
-
-/// The original DATA section bytes (VA 0x48e000), for the emulated data segment.
-fn data_section(game_dir: &Path) -> Vec<u8> {
-    let exe = std::fs::read_dir(game_dir)
-        .ok()
-        .and_then(|it| it.flatten().find(|e| e.file_name().to_string_lossy().eq_ignore_ascii_case("PokeGame.exe")))
-        .and_then(|e| std::fs::read(e.path()).ok())
-        .unwrap_or_default();
-    let Ok(p) = pe::Pe::parse(exe) else { return Vec::new() };
-    p.sections
-        .iter()
-        .find(|s| s.name == "DATA")
-        .map(|s| p.data[s.raw_ptr as usize..(s.raw_ptr + s.raw_size) as usize].to_vec())
-        .unwrap_or_default()
 }
 
 struct App {
@@ -172,18 +157,27 @@ fn main() {
         None => (None, Vec::new()),
     };
     params.extend(args);
-    let Some(game_dir) = find_game_dir(dir_arg) else {
-        eprintln!("PokeGame.exe / POKéGAME.dat not found.");
+    let fail = |e: String| -> ! {
+        rfd::MessageDialog::new().set_title("POKéMON Simulator").set_description(&e).show();
         std::process::exit(1);
     };
-    let assets = match Assets::load(&game_dir) {
-        Ok(a) => Arc::new(a),
-        Err(e) => {
-            rfd::MessageDialog::new().set_title("POKéMON Simulator").set_description(&e).show();
-            std::process::exit(1);
+    // A bundled build carries the game files; a folder argument still overrides them.
+    let (exe, dat) = match (pokegame::assets::bundled(), &dir_arg) {
+        (Some((exe, dat)), None) => (exe.to_vec(), dat.to_vec()),
+        _ => {
+            let Some(game_dir) = find_game_dir(dir_arg) else {
+                eprintln!("PokeGame.exe / POKéGAME.dat not found.");
+                std::process::exit(1);
+            };
+            pokegame::assets::read_game_files(&game_dir).unwrap_or_else(|e| fail(e))
         }
     };
-    let data = data_section(&game_dir);
+    let assets = match Assets::from_bytes(&exe, &dat) {
+        Ok(a) => Arc::new(a),
+        Err(e) => fail(e),
+    };
+    let data = pokegame::assets::data_section(&exe);
+    drop((exe, dat));
     let snapshot = Arc::new(Mutex::new(Snapshot::default()));
     let (tx, rx) = channel();
     let options = eframe::NativeOptions {

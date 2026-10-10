@@ -45,23 +45,15 @@ pub const CREATION_ORDER: [(&str, &str); 11] = [
 pub const APP_TITLE: &str = "POKéMON Simulator";
 
 /// Pixel advance widths for text measurement (AutoSize labels: code reads Label.Width).
+/// The fonts' advance tables are compiled in (`font_metrics`), so measurement is identical on
+/// every platform whether or not MS Sans Serif / Arial are installed.
 pub struct Metrics {
-    fonts: HashMap<String, Vec<u8>>,
     cache: HashMap<(String, i32), [i32; 256]>,
 }
 
 impl Metrics {
     pub fn load() -> Metrics {
-        let mut fonts = HashMap::new();
-        for (fam, paths) in [
-            ("MS Sans Serif", &["/System/Library/Fonts/Supplemental/Microsoft Sans Serif.ttf", "C:\\Windows\\Fonts\\micross.ttf"][..]),
-            ("Arial", &["/System/Library/Fonts/Supplemental/Arial.ttf", "C:\\Windows\\Fonts\\arial.ttf"][..]),
-        ] {
-            if let Some(b) = paths.iter().find_map(|p| std::fs::read(p).ok()) {
-                fonts.insert(fam.to_string(), b);
-            }
-        }
-        Metrics { fonts, cache: HashMap::new() }
+        Metrics { cache: HashMap::new() }
     }
 
     /// Width in pixels of `s` (Latin-1) in the given font, like TCanvas.TextWidth.
@@ -69,16 +61,11 @@ impl Metrics {
         let px = height.abs().max(1);
         let key = (family.to_string(), px);
         if !self.cache.contains_key(&key) {
+            let (upem, adv) = if family == "Arial" { super::font_metrics::ARIAL } else { super::font_metrics::MS_SANS_SERIF };
             let mut table = [6i32; 256];
-            let data = self.fonts.get(family).or_else(|| self.fonts.get("MS Sans Serif"));
-            if let Some(face) = data.and_then(|d| ttf_parser::Face::parse(d, 0).ok()) {
-                let upem = face.units_per_em() as f32;
-                for (c, slot) in table.iter_mut().enumerate() {
-                    let ch = char::from_u32(c as u32).unwrap_or(' ');
-                    if let Some(g) = face.glyph_index(ch) {
-                        let adv = face.glyph_hor_advance(g).unwrap_or(0) as f32;
-                        *slot = (adv * px as f32 / upem).round() as i32;
-                    }
+            for (slot, a) in table.iter_mut().zip(adv) {
+                if a >= 0 {
+                    *slot = (a as f32 * px as f32 / upem as f32).round() as i32;
                 }
             }
             self.cache.insert(key.clone(), table);
