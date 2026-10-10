@@ -36,6 +36,22 @@ fn main() {
         println!("cargo:rustc-link-lib=static=c++_static");
         println!("cargo:rustc-link-lib=static=c++abi");
     }
+    // Windows: the .exe's own icon (Explorer, taskbar) from packaging/pokegame.ico.
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
+        let ico = Path::new(env!("CARGO_MANIFEST_DIR")).join("packaging/pokegame.ico");
+        println!("cargo:rerun-if-changed={}", ico.display());
+        let out = PathBuf::from(std::env::var_os("OUT_DIR").unwrap());
+        let rc = out.join("icon.rc");
+        std::fs::write(&rc, format!("1 ICON \"{}\"\n", ico.display().to_string().replace('\\', "/"))).unwrap();
+        let obj = out.join("icon.o");
+        let windres = std::env::var("WINDRES").unwrap_or_else(|_| "x86_64-w64-mingw32-windres".into());
+        let ok = std::process::Command::new(&windres).arg(&rc).arg("-O").arg("coff").arg("-o").arg(&obj).status().is_ok_and(|s| s.success());
+        if ok {
+            println!("cargo:rustc-link-arg-bins={}", obj.display());
+        } else {
+            println!("cargo:warning=windres not available; the .exe will have no icon");
+        }
+    }
     println!("cargo:rerun-if-env-changed=POKEGAME_DIR");
     println!("cargo:rustc-check-cfg=cfg(has_bundle)");
     if std::env::var_os("CARGO_FEATURE_BUNDLED").is_none() {

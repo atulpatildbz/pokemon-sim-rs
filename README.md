@@ -26,6 +26,15 @@ Text measurement (the game positions HP bars from label widths) uses advance-wid
 MS Sans Serif / Arial compiled into the program (`src/game/font_metrics.rs`), so the game behaves
 identically on systems without those fonts.
 
+## Releases
+
+`scripts/release.sh` builds everything into `dist/`: a universal macOS `.app` (zipped), a Windows
+x64 `.exe` (zipped, cross-compiled with `brew install mingw-w64` + `rustup target add
+x86_64-pc-windows-gnu`) and an Android arm64 `.apk` signed with the release key
+(`~/.android/pokemon-sim-release.{jks,pass}`, not in the repo — back it up: Android only accepts
+updates signed with the same key). These binaries contain the original game files: keep them
+private.
+
 ## Android
 
     scripts/build-android.sh          # builds target/android/pokegame.apk, installs + starts it via adb

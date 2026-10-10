@@ -3,7 +3,7 @@
 # Needs: Android SDK (platform android-35, build-tools), NDK, `rustup target add
 # aarch64-linux-android`, `cargo install cargo-ndk`. The game files are compiled in
 # (feature `bundled`, from $POKEGAME_DIR or ../downloads/pokegame/extracted).
-# Usage: scripts/build-android.sh [--no-install]
+# Usage: [PG_RELEASE=1] scripts/build-android.sh [--no-install]
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -23,8 +23,16 @@ rm -rf "$OUT" && mkdir -p "$OUT/flat" "$OUT/stage/lib/arm64-v8a"
 cp target/aarch64-linux-android/release/libpokegame.so "$OUT/stage/lib/arm64-v8a/"
 (cd "$OUT/stage" && zip -q -r ../unsigned.apk lib)
 "$BT/zipalign" -f -p 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
-"$BT/apksigner" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android --key-pass pass:android \
-    --ks-key-alias androiddebugkey --out "$APK" "$OUT/aligned.apk"
+# PG_RELEASE=1: sign with the release key (~/.android/pokemon-sim-release.{jks,pass}, kept out
+# of the repo; Android only accepts updates signed with the same key). Otherwise the debug key.
+if [[ "${PG_RELEASE:-}" == 1 ]]; then
+    "$BT/apksigner" sign --ks "$HOME/.android/pokemon-sim-release.jks" --ks-key-alias pokemon-sim \
+        --ks-pass "file:$HOME/.android/pokemon-sim-release.pass" --key-pass "file:$HOME/.android/pokemon-sim-release.pass" \
+        --out "$APK" "$OUT/aligned.apk"
+else
+    "$BT/apksigner" sign --ks "$HOME/.android/debug.keystore" --ks-pass pass:android --key-pass pass:android \
+        --ks-key-alias androiddebugkey --out "$APK" "$OUT/aligned.apk"
+fi
 echo "Built $APK ($(du -h "$APK" | cut -f1))"
 
 if [[ "${1:-}" != "--no-install" ]] && adb get-state >/dev/null 2>&1; then

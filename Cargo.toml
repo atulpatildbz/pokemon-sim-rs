@@ -1,6 +1,6 @@
 [package]
 name = "pokegame"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 description = "Faithful Rust port of BirdieSoft's POKéMON Simulator V4.5 (Delphi 7, 2004)"
 

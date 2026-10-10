@@ -28,3 +28,41 @@ fn launcher_icons() {
         }
     }
 }
+
+/// Desktop packaging icons: `packaging/pokegame.ico` (Windows, PNG entries) and
+/// `packaging/icon.iconset` (macOS, turned into .icns by `iconutil` at release time).
+#[test]
+fn desktop_icons() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("packaging");
+    let ico = dir.join("pokegame.ico");
+    let iconset = dir.join("icon.iconset");
+    if std::env::var_os("GEN_ICONS").is_none() {
+        assert!(ico.exists(), "packaging/pokegame.ico missing; run GEN_ICONS=1 cargo test --test icons");
+        return;
+    }
+    std::fs::create_dir_all(&iconset).unwrap();
+    let png = |px: u32| {
+        let path = std::env::temp_dir().join(format!("pg_icon_{px}.png"));
+        pokegame::debug::write_png(&path, px, px, &icon::full(px)).unwrap();
+        std::fs::read(path).unwrap()
+    };
+    // .ico with PNG-compressed entries (Windows Vista+).
+    let sizes = [16u32, 24, 32, 48, 64, 128, 256];
+    let images: Vec<Vec<u8>> = sizes.iter().map(|&s| png(s)).collect();
+    let mut out = vec![0, 0, 1, 0, sizes.len() as u8, 0];
+    let mut offset = 6 + 16 * sizes.len() as u32;
+    for (s, img) in sizes.iter().zip(&images) {
+        let b = if *s >= 256 { 0 } else { *s as u8 };
+        out.extend_from_slice(&[b, b, 0, 0, 1, 0, 32, 0]);
+        out.extend_from_slice(&(img.len() as u32).to_le_bytes());
+        out.extend_from_slice(&offset.to_le_bytes());
+        offset += img.len() as u32;
+    }
+    for img in &images {
+        out.extend_from_slice(img);
+    }
+    std::fs::write(&ico, out).unwrap();
+    for (name, px) in [("16x16", 16), ("16x16@2x", 32), ("32x32", 32), ("32x32@2x", 64), ("128x128", 128), ("128x128@2x", 256), ("256x256", 256), ("256x256@2x", 512), ("512x512", 512), ("512x512@2x", 1024)] {
+        std::fs::write(iconset.join(format!("icon_{name}.png")), png(px)).unwrap();
+    }
+}

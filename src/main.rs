@@ -5,6 +5,9 @@
 //! (extract the installer with e.g. `7z x PokeGame32.exe`). Defaults to $POKEGAME_DIR, then the
 //! current directory, then asks with a folder picker.
 
+// No console window behind the game on Windows.
+#![cfg_attr(windows, windows_subsystem = "windows")]
+
 use std::path::{Path, PathBuf};
 
 fn has_game(dir: &Path) -> bool {
