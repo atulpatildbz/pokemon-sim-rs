@@ -92,6 +92,12 @@ impl eframe::App for App {
         if self.harness.tick(ctx, &snap, &self.tx) {
             let _ = self.tx.send(Input::Quit);
         }
+        // A save slot chosen in the game UI answers the program's Save/Open dialog.
+        if let Some((id, Dialog::File { .. })) = &snap.dialog {
+            if !self.answered.contains(id) && self.ui.answer_file_dialog(&snap, &self.tx) {
+                self.answered.insert(*id);
+            }
+        }
         // Native file dialogs for TOpenDialog / TSaveDialog.Execute.
         if let Some((id, Dialog::File { save, filter, default_ext, initial, .. })) = &snap.dialog {
             if let Some(path) = self.harness.pending_file.take() {

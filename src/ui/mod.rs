@@ -7,9 +7,13 @@
 
 pub mod battle;
 pub mod hub;
+pub mod naming;
 pub mod settings;
+pub mod slots;
+pub mod starter;
 pub mod textbox;
 pub mod theme;
+pub mod title;
 
 use crate::assets::Assets;
 use crate::vcl::model::{Form, MenuItem};
@@ -26,7 +30,9 @@ const SCENES: [&str; 3] = ["Form3", "Form1", "Form4"];
 const DOCK_H: f32 = 64.0;
 
 /// Sheets that are not forms.
-const OPTIONS: &str = "#options";
+pub const OPTIONS: &str = "#options";
+pub const SLOTS_NEW: &str = "#slots_new";
+pub const SLOTS_LOAD: &str = "#slots_load";
 const MENU: &str = "#menu";
 pub const BATTLE_INFO: &str = "#battleinfo";
 /// Opponent cards for a menu group (path in `cards_path`).
@@ -52,6 +58,11 @@ pub struct GameUi {
     cards_path: Vec<String>,
     autosaves: u64,
     saved_at: f64,
+    title: title::Title,
+    naming: naming::Naming,
+    starter: starter::Starter,
+    /// Path to give the program's next Save/Open dialog (a save slot).
+    pending_file: Option<String>,
 }
 
 impl GameUi {
@@ -76,9 +87,32 @@ impl GameUi {
             cards_path: Vec::new(),
             autosaves: 0,
             saved_at: f64::NEG_INFINITY,
+            title: title::Title::default(),
+            naming: naming::Naming::default(),
+            starter: starter::Starter::default(),
+            pending_file: None,
         };
         ui.apply_visuals(ctx);
         ui
+    }
+
+    /// Answer the program's Save/Open dialog with the slot chosen in the game UI. Returns true
+    /// if it was answered (the native dialog must not open).
+    pub fn answer_file_dialog(&mut self, snap: &Snapshot, tx: &Sender<Input>) -> bool {
+        if self.settings.classic {
+            return false;
+        }
+        match (&snap.dialog, self.pending_file.take()) {
+            (Some((id, Dialog::File { .. })), Some(path)) => {
+                let _ = tx.send(Input::Answer { id: *id, answer: crate::vcl::runtime::DialogAnswer::File(Some(path)) });
+                self.title.refresh();
+                true
+            }
+            (_, p) => {
+                self.pending_file = p;
+                false
+            }
+        }
     }
 
     /// Scripted front-end actions for the screenshot harness (`ui sheet Form5`, `ui cards Action1/FightTrainer1`, `ui close`).
@@ -91,6 +125,8 @@ impl GameUi {
                 self.sheet = Some(CARDS.into());
             }
             (Some("close"), _) => self.sheet = None,
+            (Some("start"), _) => self.title.start(),
+            (Some("continue"), _) => self.title.debug_continue = true,
             _ => eprintln!("ui: unknown command {cmd}"),
         }
     }
@@ -179,7 +215,8 @@ impl GameUi {
             self.scene_changed_at = now;
         }
         let sheets: Vec<&Form> = {
-            let mut v: Vec<&Form> = visible.iter().copied().filter(|f| !SCENES.contains(&f.var.as_str())).collect();
+            // The name dialog is drawn as a full screen of its own.
+            let mut v: Vec<&Form> = visible.iter().copied().filter(|f| !SCENES.contains(&f.var.as_str()) && f.var != "OKRightDlg").collect();
             v.sort_by_key(by_z);
             v
         };
@@ -224,16 +261,50 @@ impl GameUi {
             self.sheet_closing = None;
         }
         let panel_w = (screen.width() * 0.42).clamp(380.0, 620.0);
+        let naming = modal_form.as_deref() == Some("OKRightDlg");
+        let show_dock = self.scene == "Form4" && !naming;
+        let dock_h = if show_dock { DOCK_H } else { 0.0 };
         let scene_rect = if wide {
-            Rect::from_min_max(screen.min, Pos2::new(screen.right() - panel_w * open, screen.bottom() - DOCK_H))
+            Rect::from_min_max(screen.min, Pos2::new(screen.right() - panel_w * open, screen.bottom() - dock_h))
         } else {
-            Rect::from_min_max(screen.min, Pos2::new(screen.right(), screen.bottom() - DOCK_H))
+            Rect::from_min_max(screen.min, Pos2::new(screen.right(), screen.bottom() - dock_h))
         };
 
         // Scene.
         let scene_fade = ctx.animate_bool_with_time(Id::new(("scene_in", self.scene.as_str())), true, anim(0.35));
         let in_battle = self.scene == "Form4" && battle::active(snap);
-        if in_battle {
+        if !starter::active(snap) {
+            self.starter.reset();
+        }
+        if naming {
+            let id = snap.dialog.as_ref().map_or(0, |(id, _)| *id);
+            egui::Area::new(Id::new("naming")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+                ui.set_clip_rect(scene_rect);
+                self.naming.show(ui, scene_rect, snap, id, tx, now);
+            });
+        } else if self.scene == "Form1" {
+            let mut req = None;
+            let animate = self.settings.animations;
+            egui::Area::new(Id::new("title")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+                ui.set_clip_rect(scene_rect);
+                ui.multiply_opacity(scene_fade);
+                ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
+                    req = self.title.show(ui, scene_rect, snap, &mut self.renderer, assets, tx, now, animate);
+                });
+            });
+            match req {
+                Some(title::Request::OpenSheet(s)) => self.sheet = Some(s),
+                Some(title::Request::Prepare(p)) => self.pending_file = Some(p),
+                None => {}
+            }
+        } else if self.scene == "Form4" && starter::active(snap) {
+            let animate = self.settings.animations;
+            egui::Area::new(Id::new("starter")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+                ui.set_clip_rect(scene_rect);
+                ui.multiply_opacity(scene_fade);
+                self.starter.show(ui, scene_rect, snap, &mut self.renderer, assets, tx, animate, now);
+            });
+        } else if in_battle {
             let mut req = None;
             egui::Area::new(Id::new("battle")).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
                 ui.set_clip_rect(scene_rect);
@@ -278,7 +349,9 @@ impl GameUi {
             ctx.layer_painter(LayerId::new(Order::Middle, Id::new("scene_fade"))).rect_filled(screen, 0.0, Color32::from_white_alpha(a));
         }
 
-        self.dock(ctx, screen, scene_rect, &sheets, snap, wide);
+        if show_dock {
+            self.dock(ctx, screen, scene_rect, &sheets, snap, wide);
+        }
 
         // Sheet.
         if let Some(name) = self.sheet_closing.clone() {
@@ -310,6 +383,8 @@ impl GameUi {
                     OPTIONS => "Options".to_string(),
                     MENU => "Menu".to_string(),
                     BATTLE_INFO => "Battle Info".to_string(),
+                    SLOTS_NEW => "New Game".to_string(),
+                    SLOTS_LOAD => "Load Game".to_string(),
                     CARDS => visible
                         .iter()
                         .find(|f| f.var == "Form4")
@@ -348,6 +423,18 @@ impl GameUi {
                             if fired {
                                 self.sheet = None;
                             }
+                        }
+                    }
+                    SLOTS_NEW | SLOTS_LOAD => {
+                        let new_game = name == SLOTS_NEW;
+                        let req = ui
+                            .scope_builder(egui::UiBuilder::new().max_rect(body), |ui| {
+                                egui::ScrollArea::vertical().id_salt("slots").show(ui, |ui| self.title.slots_sheet(ui, new_game, snap, &mut self.renderer, assets, tx, now)).inner
+                            })
+                            .inner;
+                        if let Some(title::Request::Prepare(p)) = req {
+                            self.pending_file = Some(p);
+                            self.sheet = None;
                         }
                     }
                     BATTLE_INFO => {

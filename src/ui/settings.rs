@@ -48,7 +48,11 @@ impl Default for Settings {
 
 /// Per-platform app data folder: %APPDATA%\PokeGame, ~/Library/Application Support/PokeGame,
 /// $XDG_CONFIG_HOME/pokegame (or ~/.config/pokegame).
+/// `POKEGAME_DATA_DIR` overrides it (tests, portable installs).
 pub fn app_dir() -> Option<PathBuf> {
+    if let Some(d) = std::env::var_os("POKEGAME_DATA_DIR") {
+        return Some(PathBuf::from(d));
+    }
     #[cfg(target_os = "windows")]
     let base = std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("PokeGame"));
     #[cfg(target_os = "macos")]

@@ -46,6 +46,11 @@ messages, touch-sized buttons and a MENU sheet for the main menu. **F2** (or Opt
 switches back to the original Windows forms. Preferences live in `settings.txt` in the app data
 folder, never in the save file. Fonts: Press Start 2P (OFL) and Pixel Operator (CC0), in `fonts/`.
 
+**Save slots.** The title screen offers Continue / New Game / Load with three slots in the app data
+folder (`saves/slot1..3.pgs`, ordinary `.pgs` files). Load also has Import / Export to move a
+`.pgs` between devices. Classic mode keeps the original file dialogs. `POKEGAME_DATA_DIR`
+overrides the app data folder.
+
 **Auto-save.** The original saves only when you quit. The game UI also saves automatically after
 every action at safe points (main window up, no battle or tournament, no dialog), using the
 original save format and serializer, written atomically. A mid-battle exit therefore loses only
