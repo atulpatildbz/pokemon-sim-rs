@@ -349,3 +349,242 @@ pub fn evolve_choice(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &
         }
     }
 }
+
+// ===================================================================================== Type chart
+
+#[derive(Default)]
+pub struct TypeChart {
+    /// Which list is open for picking: false = attack, true = POKéMON.
+    picking_pokemon: bool,
+    search: String,
+}
+
+/// "Tackle, Normal" / "Bulbasaur, Grass/Poison" -> (name, [types]).
+fn split_entry(s: &str) -> (String, Vec<String>) {
+    match s.rsplit_once(", ") {
+        Some((n, ty)) => (n.to_string(), ty.split('/').map(str::to_string).collect()),
+        None => (s.to_string(), Vec::new()),
+    }
+}
+
+impl TypeChart {
+    pub fn show(&mut self, ui: &mut egui::Ui, snap: &Snapshot, tx: &Sender<Input>) {
+        let Some(fa) = form(snap, "FormA") else { return };
+        let free = snap.dialog.is_none();
+        let width = ui.available_width();
+        let (atk, mon) = (fa.c("ComboBox2"), fa.c("ComboBox1"));
+        let chosen = |c: &crate::vcl::Control| (c.item_index >= 0).then(|| c.items.get(c.item_index as usize).cloned()).flatten();
+
+        // Two picker buttons showing the current choice.
+        let half = (width - 8.0) / 2.0;
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 74.0), Sense::hover());
+        for (k, (label, c)) in [("ATTACK", atk), ("POKéMON", mon)].into_iter().enumerate() {
+            let b = Rect::from_min_size(r.min + Vec2::new(k as f32 * (half + 8.0), 0.0), Vec2::new(half, 70.0));
+            let active = self.picking_pokemon == (k == 1);
+            if t::button(ui, b, "", if active { t::ButtonKind::Primary } else { t::ButtonKind::Plain }, free).clicked() && !active {
+                self.picking_pokemon = k == 1;
+                self.search.clear();
+            }
+            let p = ui.painter();
+            let ink = if active { t::PAPER } else { t::INK };
+            t::text(p, b.left_top() + Vec2::new(12.0, 10.0), Align2::LEFT_TOP, label, t::bold(12.0), ink);
+            match chosen(c) {
+                Some(s) => {
+                    let (n, types) = split_entry(&s);
+                    t::text(p, b.left_top() + Vec2::new(12.0, 26.0), Align2::LEFT_TOP, &n, t::bold(18.0), ink);
+                    let mut x = b.left() + 12.0;
+                    for ty in types {
+                        x += type_pill(p, Pos2::new(x, b.top() + 47.0), &ty, 10.0) + 4.0;
+                    }
+                }
+                None => {
+                    t::text(p, b.left_top() + Vec2::new(12.0, 30.0), Align2::LEFT_TOP, "Choose…", t::body(18.0), ink);
+                }
+            }
+        }
+
+        // Result.
+        if fa.c("Label6").visible {
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 96.0), Sense::hover());
+            let total: f32 = cap(fa, "Label6").replace(',', ".").parse().unwrap_or(1.0);
+            let (verdict, col) = if total == 0.0 {
+                ("It has no effect.", t::GREY)
+            } else if total > 1.0 {
+                ("It's super effective!", Color32::from_rgb(0x40, 0xA0, 0x50))
+            } else if total < 1.0 {
+                ("It's not very effective…", t::RED)
+            } else {
+                ("Normal damage.", t::INK)
+            };
+            let p = ui.painter();
+            t::frame(p, r);
+            t::text(p, r.left_center() + Vec2::new(22.0, -14.0), Align2::LEFT_CENTER, &format!("×{}", cap(fa, "Label6")), t::title(26.0), col);
+            t::text(p, r.left_center() + Vec2::new(22.0, 22.0), Align2::LEFT_CENTER, verdict, t::bold(17.0), col);
+            let mut detail = format!("Type 1 ×{}", cap(fa, "Label3"));
+            if fa.c("Label4").visible {
+                detail.push_str(&format!("   Type 2 ×{}", cap(fa, "Label4")));
+            }
+            t::text(p, r.right_center() - Vec2::new(22.0, 0.0), Align2::RIGHT_CENTER, &detail, t::body(15.0), t::INK);
+        }
+        ui.add_space(6.0);
+
+        // Picker list.
+        let c = if self.picking_pokemon { mon } else { atk };
+        let (control, hint) = if self.picking_pokemon { ("ComboBox1", "Search POKéMON") } else { ("ComboBox2", "Search attacks") };
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 40.0), Sense::hover());
+        ui.put(r, egui::TextEdit::singleline(&mut self.search).hint_text(hint).font(t::body(18.0)).margin(Vec2::new(10.0, 8.0)));
+        let q = self.search.trim().to_lowercase();
+        let entries: Vec<(usize, &String)> = c.items.iter().enumerate().filter(|(_, s)| q.is_empty() || s.to_lowercase().contains(&q)).collect();
+        let mut picked = false;
+        egui::ScrollArea::vertical().id_salt(("types", control)).auto_shrink([false, false]).show_rows(ui, 36.0, entries.len(), |ui, range| {
+            for (k, s) in &entries[range] {
+                let (r, resp) = ui.allocate_exact_size(Vec2::new(width, 36.0), if free { Sense::click() } else { Sense::hover() });
+                let p = ui.painter();
+                let sel = c.item_index == *k as i32;
+                if sel || resp.hovered() {
+                    p.rect_filled(r.shrink(1.0), 6.0, if sel { Color32::from_rgb(0xD8, 0xE8, 0xF8) } else { Color32::from_rgb(0xF0, 0xF6, 0xFC) });
+                }
+                let (n, types) = split_entry(s);
+                p.text(r.left_center() + Vec2::new(10.0, 0.0), Align2::LEFT_CENTER, n, t::body(18.0), t::INK);
+                let mut x = r.right() - 8.0;
+                for ty in types.iter().rev() {
+                    let g = p.layout_no_wrap(ty.to_uppercase(), t::bold(11.0), Color32::WHITE);
+                    let pr = Rect::from_min_size(Pos2::new(x - g.size().x - 8.0, r.center().y - 8.0), g.size() + Vec2::new(8.0, 2.0));
+                    x = pr.left() - 4.0;
+                    p.rect_filled(pr, 4.0, type_color(ty));
+                    p.galley(pr.min + Vec2::new(4.0, 1.0), g, Color32::WHITE);
+                }
+                if resp.clicked() && !sel {
+                    select(tx, "FormA", control, *k as i32);
+                    send(tx, "FormA", control, Event::Change);
+                    picked = true;
+                }
+            }
+        });
+        // Picked an attack first: go straight on to the POKéMON.
+        if picked && !self.picking_pokemon && mon.item_index < 0 {
+            self.picking_pokemon = true;
+            self.search.clear();
+        }
+    }
+}
+
+// ===================================================================================== Game Corner
+
+#[derive(Default)]
+pub struct GameCorner {
+    /// When the player pressed DRAW (the reel spins before revealing the program's result).
+    spin_at: Option<f64>,
+}
+
+const SPIN: f64 = 1.6;
+
+impl GameCorner {
+    /// Still spinning: the win message waits.
+    pub fn busy(&self, now: f64) -> bool {
+        self.spin_at.is_some_and(|at| now - at < SPIN)
+    }
+
+    pub fn show(&mut self, ui: &mut egui::Ui, snap: &Snapshot, tx: &Sender<Input>, now: f64, animate: bool) {
+        let Some(fb) = form(snap, "FormB") else { return };
+        let money = form(snap, "Form5").map(|f| cap(f, "MoneyLbl")).unwrap_or_default();
+        let spinning = animate && self.busy(now);
+        let free = snap.dialog.is_none() && !spinning;
+        let width = ui.available_width();
+        if spinning {
+            ui.ctx().request_repaint();
+        }
+
+        // Money and the lucky-number reel.
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 120.0), Sense::hover());
+        let p = ui.painter().clone();
+        p.rect_filled(r, 12.0, Color32::from_rgb(0x30, 0x28, 0x48));
+        t::text(&p, r.left_top() + Vec2::new(14.0, 12.0), Align2::LEFT_TOP, "YOUR MONEY", t::bold(13.0), Color32::from_rgb(0xF8, 0xD0, 0x30));
+        t::text(&p, r.left_top() + Vec2::new(14.0, 30.0), Align2::LEFT_TOP, &format!("¥{money}"), t::bold(24.0), t::PAPER);
+        let reel = Rect::from_center_size(r.right_center() + Vec2::new(-70.0, 9.0), Vec2::new(86.0, 86.0));
+        p.rect_filled(reel, 10.0, t::PAPER);
+        p.rect_stroke(reel, 10.0, egui::Stroke::new(3.0, Color32::from_rgb(0xF8, 0xD0, 0x30)), egui::StrokeKind::Outside);
+        let lucky = fb.c("RadioGroup3").item_index;
+        let picked = fb.c("RadioGroup2").item_index;
+        let shown = if spinning { ((now * 30.0) as i32).rem_euclid(10) } else { lucky };
+        let digit = if shown >= 0 { shown.to_string() } else { "?".into() };
+        p.text(reel.center(), Align2::CENTER_CENTER, digit, t::title(44.0), if !spinning && lucky >= 0 && lucky == picked { Color32::from_rgb(0x40, 0xA0, 0x50) } else { t::INK });
+        t::text(&p, Pos2::new(reel.center().x, reel.top() - 8.0), Align2::CENTER_BOTTOM, "LUCKY NUMBER", t::bold(11.0), Color32::from_rgb(0xF8, 0xD0, 0x30));
+        if !spinning && lucky >= 0 && picked >= 0 && self.spin_at.is_some() {
+            let (txt, col) = if lucky == picked { ("WIN!", Color32::from_rgb(0x88, 0xE0, 0x98)) } else { ("No luck…", Color32::from_rgb(0xF0, 0x90, 0x88)) };
+            t::text(&p, r.left_bottom() + Vec2::new(14.0, -14.0), Align2::LEFT_BOTTOM, txt, t::bold(20.0), col);
+        }
+        ui.add_space(8.0);
+
+        // Bet (SpinEdit1, capped at your money by the program).
+        let spin = fb.c("SpinEdit1");
+        let bet: i32 = spin.text.trim().parse().unwrap_or(spin.value);
+        let max = spin.max_value.max(0);
+        heading(ui, "Bet");
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
+        let set = |v: i32| {
+            let _ = tx.send(Input::SetValue { form: "FormB".into(), control: "SpinEdit1".into(), value: v.clamp(0, max) });
+        };
+        let steps = [("-1000", -1000), ("-100", -100), ("+100", 100), ("+1000", 1000)];
+        let bw = (width - 130.0 - 8.0 * 4.0) / 4.0;
+        t::text(ui.painter(), r.left_center() + Vec2::new(4.0, -2.0), Align2::LEFT_CENTER, &format!("¥{bet}"), t::bold(24.0), t::INK);
+        for (k, (label, d)) in steps.iter().enumerate() {
+            let b = Rect::from_min_size(r.min + Vec2::new(130.0 + k as f32 * (bw + 8.0), 0.0), Vec2::new(bw, 46.0));
+            if t::button(ui, b, label, t::ButtonKind::Plain, free).clicked() {
+                set(bet + d);
+            }
+        }
+        ui.add_space(4.0);
+
+        // Prize (RadioGroup1).
+        heading(ui, "Play for");
+        let prizes = &fb.c("RadioGroup1");
+        let half = (width - 8.0) / 2.0;
+        for row in prizes.items.chunks(2).enumerate() {
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
+            for (k, item) in row.1.iter().enumerate() {
+                let idx = (row.0 * 2 + k) as i32;
+                let b = Rect::from_min_size(r.min + Vec2::new(k as f32 * (half + 8.0), 0.0), Vec2::new(half, 46.0));
+                let sel = prizes.item_index == idx;
+                let (name, odds) = match strip_amp(item).split_once(" (") {
+                    Some((n, o)) => (n.to_string(), o.trim_end_matches(')').to_string()),
+                    None => (strip_amp(item), String::new()),
+                };
+                let resp = t::button(ui, b, "", if sel { t::ButtonKind::Primary } else { t::ButtonKind::Plain }, free);
+                let ink = if sel { t::PAPER } else { t::INK };
+                t::text(ui.painter(), b.left_center() + Vec2::new(12.0, -9.0), Align2::LEFT_CENTER, &name, t::bold(15.0), ink);
+                t::text(ui.painter(), b.left_center() + Vec2::new(12.0, 8.0), Align2::LEFT_CENTER, &odds, t::body(13.0), ink);
+                if resp.clicked() {
+                    select(tx, "FormB", "RadioGroup1", idx);
+                }
+            }
+        }
+        ui.add_space(4.0);
+
+        // Number pad (RadioGroup2).
+        heading(ui, "Pick a number");
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 2.0 * 54.0), Sense::hover());
+        let kw = (width - 4.0 * 8.0) / 5.0;
+        for n in 0..10 {
+            let b = Rect::from_min_size(r.min + Vec2::new((n % 5) as f32 * (kw + 8.0), (n / 5) as f32 * 54.0), Vec2::new(kw, 48.0));
+            let sel = picked == n as i32;
+            if t::button(ui, b, &n.to_string(), if sel { t::ButtonKind::Primary } else { t::ButtonKind::Plain }, free).clicked() {
+                select(tx, "FormB", "RadioGroup2", n as i32);
+            }
+        }
+        ui.add_space(8.0);
+
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 56.0), Sense::hover());
+        let half = (width - 8.0) / 2.0;
+        if t::button(ui, Rect::from_min_size(r.min, Vec2::new(half, 52.0)), "CLOSE", t::ButtonKind::Plain, free).clicked() {
+            send(tx, "FormB", "Button2", Event::Click);
+        }
+        if t::button(ui, Rect::from_min_size(r.min + Vec2::new(half + 8.0, 0.0), Vec2::new(half, 52.0)), "DRAW!", t::ButtonKind::Danger, free).clicked() {
+            // The program draws instantly; the reel spins only if a draw can happen.
+            if bet >= 0 && prizes.item_index >= 0 && picked >= 0 {
+                self.spin_at = Some(now);
+            }
+            send(tx, "FormB", "Button1", Event::Click);
+        }
+    }
+}

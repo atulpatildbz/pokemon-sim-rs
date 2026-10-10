@@ -65,6 +65,8 @@ pub struct GameUi {
     /// Path to give the program's next Save/Open dialog (a save slot).
     pending_file: Option<String>,
     dex: screens::Dex,
+    types: screens::TypeChart,
+    corner: screens::GameCorner,
     /// Evolution being shown: (from, to, start time).
     evolving: Option<(i32, i32, f64)>,
 }
@@ -96,6 +98,8 @@ impl GameUi {
             starter: starter::Starter::default(),
             pending_file: None,
             dex: screens::Dex::default(),
+            types: screens::TypeChart::default(),
+            corner: screens::GameCorner::default(),
             evolving: None,
         };
         ui.apply_visuals(ctx);
@@ -461,7 +465,8 @@ impl GameUi {
                 }
             });
             ctx.move_to_top(layer);
-            let bespoke = matches!(name.as_str(), "Form5" | "Form8" | "Form9");
+            let bespoke = matches!(name.as_str(), "Form5" | "Form8" | "Form9" | "FormA" | "FormB");
+            let animate = self.settings.animations;
             if bespoke {
                 let body = Rect::from_min_max(sheet_rect.min + Vec2::new(14.0, 62.0), sheet_rect.max - Vec2::new(14.0, 12.0));
                 let interactive = !any_dialog && self.sheet.is_some();
@@ -473,6 +478,8 @@ impl GameUi {
                     ui.add_enabled_ui(interactive, |ui| match name.as_str() {
                         "Form5" => screens::pc(ui, snap, &mut self.renderer, assets, tx),
                         "Form8" => self.dex.show(ui, snap, &mut self.renderer, assets, tx),
+                        "FormA" => self.types.show(ui, snap, tx),
+                        "FormB" => egui::ScrollArea::vertical().id_salt("corner").show(ui, |ui| self.corner.show(ui, snap, tx, now, animate)).inner,
                         _ => egui::ScrollArea::vertical().id_salt("mart").show(ui, |ui| screens::mart(ui, snap, tx)).inner,
                     });
                 });
@@ -509,7 +516,8 @@ impl GameUi {
 
         // Message boxes wait until the battle has replayed what led to them.
         if let Some((id, Dialog::Message { text, kind, buttons })) = &snap.dialog {
-            if !(in_battle && self.battle.busy()) && !evolving_busy {
+            let corner_busy = self.settings.animations && self.corner.busy(now);
+            if !(in_battle && self.battle.busy()) && !evolving_busy && !corner_busy {
                 self.textbox.show(ctx, scene_rect, *id, text, *kind, *buttons, &self.settings, tx);
             }
         }

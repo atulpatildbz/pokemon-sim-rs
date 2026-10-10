@@ -46,6 +46,10 @@ messages, touch-sized buttons and a MENU sheet for the main menu. **F2** (or Opt
 switches back to the original Windows forms. Preferences live in `settings.txt` in the app data
 folder, never in the save file. Fonts: Press Start 2P (OFL) and Pixel Operator (CC0), in `fonts/`.
 
+**Screens.** Title, name entry, starter cards, hub, battle, PC/Statistics, Mart, POKéDEX, Type
+Comparisons, Game Corner and the evolution sequence are drawn as game screens over the original
+forms' controls; About and anything else fall back to the restyled original form.
+
 **Save slots.** The title screen offers Continue / New Game / Load with three slots in the app data
 folder (`saves/slot1..3.pgs`, ordinary `.pgs` files). Load also has Import / Export to move a
 `.pgs` between devices. Classic mode keeps the original file dialogs. `POKEGAME_DATA_DIR`
