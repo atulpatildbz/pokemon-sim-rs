@@ -5,7 +5,9 @@
 //! Forms without a bespoke screen yet are hosted generically: drawn by the VCL renderer in the
 //! game skin, scaled to fit their scene or sheet.
 
+pub mod audio;
 pub mod battle;
+pub mod chiptune;
 pub mod hub;
 pub mod naming;
 pub mod screens;
@@ -104,6 +106,25 @@ impl GameUi {
         };
         ui.apply_visuals(ctx);
         ui
+    }
+
+    /// Which soundtrack cue fits what is on screen (None = silence). Classic mode has none,
+    /// like the original.
+    pub fn music_cue(&self, snap: &Snapshot) -> Option<chiptune::Cue> {
+        use chiptune::Cue;
+        if self.settings.classic || !self.settings.soundtrack {
+            return None;
+        }
+        match self.scene.as_str() {
+            "Form1" | "Form3" => Some(Cue::Title),
+            "Form4" if battle::active(snap) => match self.battle.outcome() {
+                Some(true) => Some(Cue::Victory),
+                Some(false) => None,
+                None => Some(Cue::Battle),
+            },
+            "Form4" => Some(Cue::Hub),
+            _ => Some(Cue::Title),
+        }
     }
 
     /// Answer the program's Save/Open dialog with the slot chosen in the game UI. Returns true
@@ -746,6 +767,13 @@ impl GameUi {
         if t::button(ui, Rect::from_min_size(r.min + Vec2::new(half + 6.0, 0.0), Vec2::new(half, 46.0)), classic_label, t::ButtonKind::Plain, true).clicked() {
             let on = !self.settings.classic;
             self.set_classic(ctx, on);
+        }
+        row(ui, "Sound");
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
+        let label = if self.settings.soundtrack { "Soundtrack: ON" } else { "Soundtrack: OFF" };
+        if t::button(ui, Rect::from_min_size(r.min, Vec2::new(width, 46.0)), label, t::ButtonKind::Plain, true).clicked() {
+            self.settings.soundtrack = !self.settings.soundtrack;
+            self.settings.save();
         }
         // Music: the original Form4 menu items, so their checked state stays in the program.
         if let Some(f4) = snap.forms.iter().find(|f| f.var == "Form4" && f.visible) {

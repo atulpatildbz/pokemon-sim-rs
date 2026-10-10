@@ -16,6 +16,7 @@ eframe = { version = "0.31", default-features = false, features = ["default_font
 egui = "0.31"
 ttf-parser = "0.25"
 rfd = "0.15"
+rodio = "0.20"
 
 [profile.release]
 opt-level = 3

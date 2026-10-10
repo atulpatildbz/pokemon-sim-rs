@@ -57,6 +57,7 @@ struct App {
     snapshot: Arc<Mutex<Snapshot>>,
     tx: Sender<Input>,
     ui: GameUi,
+    audio: Option<pokegame::ui::audio::Audio>,
     answered: HashSet<u64>,
     screen: (i32, i32),
     harness: Harness,
@@ -142,6 +143,14 @@ impl eframe::App for App {
             self.ui.debug_command(&c);
         }
         self.ui.show(ctx, &snap, fx, &self.assets, &self.tx);
+        if let Some(a) = &mut self.audio {
+            a.sync_media(&snap.media, &self.tx);
+            let cue = if a.media_playing() { None } else { self.ui.music_cue(&snap) };
+            a.set_cue(cue);
+            if !snap.media.file_name.is_empty() {
+                ctx.request_repaint_after(std::time::Duration::from_millis(200));
+            }
+        }
     }
 }
 
@@ -220,6 +229,7 @@ fn main() {
                 snapshot: snap2,
                 tx,
                 ui,
+                audio: pokegame::ui::audio::Audio::new(),
                 answered: HashSet::new(),
                 screen: (0, 0),
                 harness: Harness::from_env(),

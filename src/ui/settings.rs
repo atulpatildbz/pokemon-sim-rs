@@ -38,11 +38,13 @@ pub struct Settings {
     /// Draw the original Windows forms instead of the game UI.
     pub classic: bool,
     pub animations: bool,
+    /// Background soundtrack (the player's own Music > Open file always plays).
+    pub soundtrack: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { text_speed: TextSpeed::Normal, classic: false, animations: true }
+        Settings { text_speed: TextSpeed::Normal, classic: false, animations: true, soundtrack: true }
     }
 }
 
@@ -83,6 +85,7 @@ impl Settings {
                 }
                 ("classic", v) => s.classic = v == "true",
                 ("animations", v) => s.animations = v != "false",
+                ("soundtrack", v) => s.soundtrack = v != "false",
                 _ => {}
             }
         }
@@ -94,7 +97,7 @@ impl Settings {
         if let Some(dir) = path.parent() {
             let _ = std::fs::create_dir_all(dir);
         }
-        let text = format!("text_speed={}\nclassic={}\nanimations={}\n", self.text_speed.label(), self.classic, self.animations);
+        let text = format!("text_speed={}\nclassic={}\nanimations={}\nsoundtrack={}\n", self.text_speed.label(), self.classic, self.animations, self.soundtrack);
         let _ = std::fs::write(path, text);
     }
 }

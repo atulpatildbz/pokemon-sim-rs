@@ -50,6 +50,12 @@ folder, never in the save file. Fonts: Press Start 2P (OFL) and Pixel Operator (
 Comparisons, Game Corner and the evolution sequence are drawn as game screens over the original
 forms' controls; About and anything else fall back to the restyled original form.
 
+**Music.** Music › Open file / Repeat / Stop work as in the original (your file always takes
+priority). The game UI adds an original chiptune soundtrack (title, hub, battle, victory —
+synthesized in `src/ui/chiptune.rs`, no audio files). To use your own tracks, put
+`title`, `hub`, `battle` or `victory` `.ogg/.mp3/.flac/.wav` files in `<app data>/music/`.
+Options › Soundtrack turns it off; Classic mode has none, like the original.
+
 **Save slots.** The title screen offers Continue / New Game / Load with three slots in the app data
 folder (`saves/slot1..3.pgs`, ordinary `.pgs` files). Load also has Import / Export to move a
 `.pgs` between devices. Classic mode keeps the original file dialogs. `POKEGAME_DATA_DIR`
@@ -65,7 +71,7 @@ that battle. `tests/golden.rs` checks that auto-saving never changes the game.
 ## Known differences
 
 - Help (`.hlp`, WinHelp) is not displayed — WinHelp no longer exists (also not on modern Windows).
-- Music menu: file selection/repeat logic is ported; audio playback is not implemented yet.
+- Music › Open file plays MP3, WAV, OGG and FLAC (the original also took MIDI and WMA, which are not supported).
 - Window focus/activation side effects (Form5 stealing focus) are not modelled.
 - Text width uses the TrueType *Microsoft Sans Serif* instead of the bitmap *MS Sans Serif*
   (affects label-relative positions by a pixel or two).

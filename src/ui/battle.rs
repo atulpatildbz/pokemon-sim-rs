@@ -109,6 +109,18 @@ pub fn active(snap: &Snapshot) -> bool {
 }
 
 impl BattleView {
+    /// How the fight has gone so far, as shown on screen: Some(true) = enemy fainted or caught,
+    /// Some(false) = own POKéMON fainted.
+    pub fn outcome(&self) -> Option<bool> {
+        if self.fainted[1] || self.caught {
+            Some(true)
+        } else if self.fainted[0] {
+            Some(false)
+        } else {
+            None
+        }
+    }
+
     /// The player's POKéMON is on the field.
     pub fn own_out(&self) -> bool {
         self.own_species > 0
