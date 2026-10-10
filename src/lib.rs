@@ -24,7 +24,12 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
         std::process::exit(0);
     }
     if let Some(p) = app.internal_data_path() {
-        std::env::set_var("POKEGAME_DATA_DIR", p);
+        std::env::set_var("POKEGAME_DATA_DIR", &p);
+        // Saves dropped into the app's external folder (adb push, a file manager:
+        // Android/data/<package>/files/import/slotN.pgs) move into empty slots on launch.
+        if let Some(ext) = app.external_data_path() {
+            import_saves(&ext.join("import"), &p.join("saves"));
+        }
     }
     let Some((exe, dat)) = assets::bundled() else {
         eprintln!("pokegame: built without the game files (feature `bundled`)");
@@ -36,4 +41,20 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
     }
     // The activity is gone (Back or system): end the process so the next launch is clean.
     std::process::exit(0);
+}
+
+/// Move `slot1..3.pgs` from `from` into `to` where that slot is still empty.
+#[cfg(target_os = "android")]
+fn import_saves(from: &std::path::Path, to: &std::path::Path) {
+    for n in 1..=ui::slots::COUNT {
+        let name = format!("slot{n}.pgs");
+        let (src, dst) = (from.join(&name), to.join(&name));
+        let ok = std::fs::read(&src).is_ok_and(|b| b.starts_with(b"VERSION2SAVEFILEIDENTIFIER"));
+        if ok && !dst.exists() {
+            let _ = std::fs::create_dir_all(to);
+            if std::fs::copy(&src, &dst).is_ok() {
+                let _ = std::fs::remove_file(&src);
+            }
+        }
+    }
 }

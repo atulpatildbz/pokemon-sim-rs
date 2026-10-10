@@ -43,7 +43,9 @@ Needs the Android SDK (platform + build-tools), the NDK, `rustup target add aarc
 and `cargo install cargo-ndk`; the script finds them under `$ANDROID_HOME` (default: Homebrew's
 `android-commandlinetools`). The APK is a NativeActivity (no Java), signed with
 `~/.android/debug.keystore`, with the game files compiled in. Saves, settings and custom music
-live in the app's internal storage. The launcher icon is drawn in code (`src/ui/icon.rs`;
+live in the app's internal storage. To bring a save onto a phone, put it at
+`Android/data/com.atulpatildbz.pokegame/files/import/slotN.pgs` (e.g. `adb push`); it moves into
+that slot on the next launch if the slot is empty. The launcher icon is drawn in code (`src/ui/icon.rs`;
 regenerate with `GEN_ICONS=1 cargo test --test icons`). Two vendored one-line patches make egui
 behave on phones (see `[patch.crates-io]` in `Cargo.toml`).
 
