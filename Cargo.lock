@@ -2431,7 +2431,7 @@ dependencies = [
 
 [[package]]
 name = "pokegame"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "eframe",
  "egui",

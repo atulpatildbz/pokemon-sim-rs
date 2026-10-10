@@ -75,6 +75,8 @@ pub struct GameUi {
     corner: screens::GameCorner,
     /// Evolution being shown: (from, to, start time).
     evolving: Option<(i32, i32, f64)>,
+    /// When Back was pressed at the top level (a second press within 2 s quits).
+    back_at: f64,
 }
 
 impl GameUi {
@@ -107,6 +109,7 @@ impl GameUi {
             types: screens::TypeChart::default(),
             corner: screens::GameCorner::default(),
             evolving: None,
+            back_at: f64::NEG_INFINITY,
         };
         ui.apply_visuals(ctx);
         ui
@@ -248,7 +251,8 @@ impl GameUi {
             full
         };
         let wide = screen.width() >= 820.0 && screen.width() > screen.height() * 1.15;
-        let anim = |secs: f32| if self.settings.animations { secs } else { 0.0 };
+        let animations = self.settings.animations;
+        let anim = move |secs: f32| if animations { secs } else { 0.0 };
 
         egui::CentralPanel::default().frame(egui::Frame::new()).show(ctx, |ui| {
             t::backdrop(ui.painter(), full, if self.settings.animations { now } else { 0.0 });
@@ -309,11 +313,8 @@ impl GameUi {
             }
         }
 
-        // Back (Android) / Escape closes the open sheet, unless a modal form needs an answer.
-        if ctx.input(|i| i.key_pressed(egui::Key::Escape))
-            && self.sheet.as_ref().is_some_and(|s| modal_form.as_deref() != Some(s.as_str()))
-        {
-            self.sheet = None;
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.back(snap, modal_form.as_deref(), now, tx);
         }
 
         // Layout.
@@ -432,19 +433,24 @@ impl GameUi {
                 let h = (screen.height() * 0.86).min(screen.height() - 40.0);
                 Rect::from_min_size(Pos2::new(screen.left(), screen.bottom() - h * open), Vec2::new(screen.width(), h))
             };
-            if !wide {
-                // Dim the scene; tapping it closes the sheet (unless a modal form needs an answer).
-                let dim = egui::Area::new(Id::new("sheet_dim")).movable(false).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
-                    ui.painter().rect_filled(screen, 0.0, Color32::from_black_alpha((110.0 * open) as u8));
-                    ui.allocate_rect(screen, Sense::click()).clicked()
-                });
-                if dim.inner && modal_form.is_none() && !any_dialog {
-                    self.sheet = None;
-                }
-            }
+            // One layer for the whole sheet — dim, frame, header and content — so nothing depends
+            // on egui's layer ordering (several move_to_top calls in one frame keep an arbitrary
+            // order, which once left a sheet's background above its own content).
             let layer = LayerId::new(Order::Foreground, Id::new("sheet"));
-            egui::Area::new(layer.id).movable(false).order(Order::Foreground).fixed_pos(sheet_rect.min).constrain(false).show(ctx, |ui| {
-                let p = ui.painter();
+            let bespoke = matches!(name.as_str(), "Form5" | "Form8" | "Form9" | "FormA" | "FormB");
+            let animate = self.settings.animations;
+            egui::Area::new(layer.id).movable(false).order(Order::Foreground).fixed_pos(Pos2::ZERO).constrain(false).show(ctx, |ui| {
+                if !wide {
+                    // Dim the scene; tapping it closes the sheet (unless a modal form needs an answer).
+                    ui.painter().rect_filled(full, 0.0, Color32::from_black_alpha((110.0 * open) as u8));
+                    if ui.interact(full, Id::new("sheet_dim"), Sense::click()).clicked() && modal_form.is_none() && !any_dialog {
+                        self.sheet = None;
+                    }
+                }
+                // The sheet itself swallows taps that miss its controls.
+                let _ = ui.interact(sheet_rect, Id::new("sheet_bg"), Sense::click());
+                let p = ui.painter().clone();
+                let p = &p;
                 let r = Rect::from_min_size(sheet_rect.min, sheet_rect.size() + Vec2::new(0.0, 20.0));
                 p.rect_filled(r.translate(Vec2::new(0.0, -4.0)), 18.0, Color32::from_black_alpha(40));
                 p.rect_filled(r, 18.0, t::FRAME);
@@ -477,7 +483,20 @@ impl GameUi {
                     t::icon(ui.painter(), b.center() - Vec2::new(0.0, 2.0), 18.0, t::Icon::Close, t::INK);
                 }
                 let body = Rect::from_min_max(sheet_rect.min + Vec2::new(12.0, 62.0), sheet_rect.max - Vec2::new(12.0, 12.0));
-                ui.allocate_rect(sheet_rect, Sense::hover());
+                if bespoke {
+                    let body = Rect::from_min_max(sheet_rect.min + Vec2::new(14.0, 62.0), sheet_rect.max - Vec2::new(14.0, 12.0));
+                    let interactive = !any_dialog && self.sheet.is_some();
+                    ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| {
+                        ui.set_clip_rect(body);
+                        ui.add_enabled_ui(interactive, |ui| match name.as_str() {
+                            "Form5" => screens::pc(ui, snap, &mut self.renderer, assets, tx),
+                            "Form8" => self.dex.show(ui, snap, &mut self.renderer, assets, tx),
+                            "FormA" => self.types.show(ui, snap, tx),
+                            "FormB" => egui::ScrollArea::vertical().id_salt("corner").show(ui, |ui| self.corner.show(ui, snap, tx, now, animate)).inner,
+                            _ => egui::ScrollArea::vertical().id_salt("mart").show(ui, |ui| screens::mart(ui, snap, tx)).inner,
+                        });
+                    });
+                }
                 match name.as_str() {
                     OPTIONS => {
                         ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| self.options_body(ui, ctx, snap, tx));
@@ -514,33 +533,26 @@ impl GameUi {
                     _ => {}
                 }
             });
-            ctx.move_to_top(layer);
-            let bespoke = matches!(name.as_str(), "Form5" | "Form8" | "Form9" | "FormA" | "FormB");
-            let animate = self.settings.animations;
             if bespoke {
-                let body = Rect::from_min_max(sheet_rect.min + Vec2::new(14.0, 62.0), sheet_rect.max - Vec2::new(14.0, 12.0));
-                let interactive = !any_dialog && self.sheet.is_some();
-                let blayer = LayerId::new(Order::Foreground, Id::new(("sheetbody", name.as_str())));
-                egui::Area::new(blayer.id).movable(false).order(Order::Foreground).fixed_pos(body.min).constrain(false).show(ctx, |ui| {
-                    ui.set_clip_rect(body);
-                    ui.set_width(body.width());
-                    ui.set_max_height(body.height());
-                    ui.add_enabled_ui(interactive, |ui| match name.as_str() {
-                        "Form5" => screens::pc(ui, snap, &mut self.renderer, assets, tx),
-                        "Form8" => self.dex.show(ui, snap, &mut self.renderer, assets, tx),
-                        "FormA" => self.types.show(ui, snap, tx),
-                        "FormB" => egui::ScrollArea::vertical().id_salt("corner").show(ui, |ui| self.corner.show(ui, snap, tx, now, animate)).inner,
-                        _ => egui::ScrollArea::vertical().id_salt("mart").show(ui, |ui| screens::mart(ui, snap, tx)).inner,
-                    });
-                });
-                ctx.move_to_top(blayer);
             } else if let Some(form) = sheets.iter().find(|f| f.var == name) {
                 let body = Rect::from_min_max(sheet_rect.min + Vec2::new(12.0, 62.0), sheet_rect.max - Vec2::new(12.0, 12.0));
                 let interactive = !any_dialog || modal_form.as_deref() == Some(form.var.as_str());
                 let flayer = LayerId::new(Order::Foreground, Id::new(("sheetform", &form.var)));
+                // A transformed layer of its own, kept directly above the sheet.
+                ctx.set_sublayer(layer, flayer);
                 self.host_form(ctx, form, body, flayer, interactive && self.sheet.is_some(), assets, tx, 1.0, false);
-                ctx.move_to_top(flayer);
             }
+        }
+
+        // "Press BACK again to quit" hint.
+        let since_back = (now - self.back_at) as f32;
+        if since_back < 2.0 {
+            let a = (1.0 - ((since_back - 1.5) / 0.5).max(0.0)).clamp(0.0, 1.0);
+            let r = Rect::from_center_size(Pos2::new(screen.center().x, screen.bottom() - DOCK_H - 40.0), Vec2::new(250.0, 40.0));
+            let p = ctx.layer_painter(LayerId::new(Order::Tooltip, Id::new("back_hint")));
+            p.rect_filled(r, 20.0, t::FRAME.gamma_multiply(0.9 * a));
+            p.text(r.center(), Align2::CENTER_CENTER, "Press BACK again to quit", t::bold(17.0), t::PAPER.gamma_multiply(a));
+            ctx.request_repaint();
         }
 
         // "Saved" hint after each auto-save.
@@ -578,6 +590,53 @@ impl GameUi {
         }
     }
 
+    /// Android Back (and Escape on desktop): answer a message the safe way, else close the open
+    /// sheet, else close the battle bag. On the title screen or hub with nothing open, Android
+    /// quits on a second Back within 2 s (through the original's own quit, which saves).
+    /// Never quits from a battle.
+    fn back(&mut self, snap: &Snapshot, modal_form: Option<&str>, now: f64, tx: &Sender<Input>) {
+        use crate::vcl::runtime::{DialogAnswer, MB_CANCEL, MB_NO, MB_OK};
+        if let Some((id, Dialog::Message { buttons, .. })) = &snap.dialog {
+            let answer = if buttons & MB_NO != 0 {
+                7
+            } else if buttons & MB_CANCEL != 0 {
+                2
+            } else if buttons & MB_OK != 0 || *buttons == 0 {
+                1
+            } else {
+                return;
+            };
+            let _ = tx.send(Input::Answer { id: *id, answer: DialogAnswer::Button(answer) });
+            return;
+        }
+        if let Some(s) = &self.sheet {
+            if modal_form != Some(s.as_str()) {
+                self.sheet = None;
+            }
+            return;
+        }
+        if snap.dialog.is_some() || self.battle.close_bag() || battle::active(snap) {
+            return;
+        }
+        if !cfg!(target_os = "android") {
+            return;
+        }
+        let root = matches!(self.scene.as_str(), "Form1" | "Form4");
+        if !root {
+            return;
+        }
+        if now - self.back_at < 2.0 {
+            let input = if self.scene == "Form4" {
+                Input::CloseForm { form: "Form4".into() }
+            } else {
+                Input::Event { form: "Form1".into(), control: "ExitButton".into(), event: crate::vcl::runtime::Event::Click }
+            };
+            let _ = tx.send(input);
+        } else {
+            self.back_at = now;
+        }
+    }
+
     /// The evolution sequence: the old and new sprite alternate faster and faster in white,
     /// then the new one bursts out. Returns true while the animation is still running.
     fn evolution(&mut self, ctx: &egui::Context, screen: Rect, snap: &Snapshot, assets: &Assets, now: f64) -> bool {
@@ -590,8 +649,8 @@ impl GameUi {
             self.evolving = None;
             return false;
         }
-        let layer = LayerId::new(Order::Foreground, Id::new("evolution"));
-        ctx.move_to_top(layer);
+        // Above sheets (Foreground); message boxes (Debug) stay above it.
+        let layer = LayerId::new(Order::Tooltip, Id::new("evolution"));
         let p = ctx.layer_painter(layer);
         p.rect_filled(screen, 0.0, Color32::from_rgb(0x18, 0x20, 0x38));
         let c = screen.center() - Vec2::new(0.0, screen.height() * 0.12);
@@ -625,7 +684,7 @@ impl GameUi {
             t::text(&p, Pos2::new(screen.center().x, screen.bottom() - screen.height() * 0.22), Align2::CENTER_CENTER, &format!("What? {} is evolving!", name(from)), t::bold(24.0), t::PAPER);
         }
         // A tap skips to the end.
-        egui::Area::new(Id::new("evolution_tap")).movable(false).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+        egui::Area::new(Id::new("evolution")).movable(false).order(Order::Tooltip).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
             if ui.allocate_rect(screen, Sense::click()).clicked() && !done {
                 self.evolving = Some((from, to, now - dur as f64));
             }
@@ -660,7 +719,6 @@ impl GameUi {
             }
             self.renderer.form_body(ui, form, assets, tx, interactive, false);
         });
-        ctx.move_to_top(layer);
     }
 
     /// Bottom dock: Menu (when the scene has one), a chip per open window, Options.

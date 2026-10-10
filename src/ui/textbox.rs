@@ -14,6 +14,8 @@ pub struct TextBox {
     started: f64,
     /// Choice-box cursor (keyboard).
     cursor: usize,
+    /// The full-screen catcher was tapped last frame.
+    tapped: bool,
 }
 
 impl TextBox {
@@ -22,7 +24,7 @@ impl TextBox {
     pub fn show(&mut self, ctx: &egui::Context, area: Rect, id: u64, text: &str, kind: MsgDlgType, buttons: u16, settings: &Settings, tx: &Sender<Input>) {
         let now = ctx.input(|i| i.time);
         if self.id != id {
-            *self = TextBox { id, started: now, cursor: 0 };
+            *self = TextBox { id, started: now, cursor: 0, tapped: false };
         }
         let choices: Vec<(&str, i32)> = [(MB_YES, "YES", 6), (MB_NO, "NO", 7), (MB_OK, "OK", 1), (MB_CANCEL, "CANCEL", 2)]
             .into_iter()
@@ -43,15 +45,9 @@ impl TextBox {
             ctx.request_repaint();
         }
 
-        // Full-screen catcher: dims nothing, but a tap anywhere advances the text.
-        let catch_layer = egui::LayerId::new(Order::Foreground, Id::new(("tb_catch", id)));
-        ctx.move_to_top(catch_layer);
-        ctx.move_to_top(egui::LayerId::new(Order::Foreground, Id::new(("tb", id))));
-        let tapped = egui::Area::new(Id::new(("tb_catch", id))).movable(false)
-            .order(Order::Foreground)
-            .fixed_pos(Pos2::ZERO)
-            .show(ctx, |ui| ui.allocate_rect(ctx.screen_rect(), Sense::click()).clicked())
-            .inner;
+        // Tap anywhere (a full-screen catcher inside the box's own layer, see below) or a key
+        // advances the text. The tap is read from the previous frame's response.
+        let tapped = std::mem::take(&mut self.tapped);
         let confirm_key = ctx.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Space) || i.key_pressed(egui::Key::Z));
         if !done && (tapped || confirm_key) {
             self.started = -1e9;
@@ -83,7 +79,12 @@ impl TextBox {
             Rect::from_min_size(Pos2::new(area.center().x - width / 2.0, area.bottom() - height - 12.0), Vec2::new(width, height))
         };
 
-        egui::Area::new(Id::new(("tb", id))).movable(false).order(Order::Foreground).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+        // Order::Debug: above sheets (Foreground) and the evolution overlay (Tooltip). One layer
+        // for catcher and box, so their order never depends on egui's move_to_top.
+        egui::Area::new(Id::new(("tb", id))).movable(false).order(Order::Debug).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+            if ui.interact(ctx.screen_rect(), Id::new(("tb_catch", id)), Sense::click()).clicked() {
+                self.tapped = true;
+            }
             let p = ui.painter().clone();
             // Slide up a little as it appears.
             let appear = ctx.animate_bool_with_time(Id::new(("tb_in", id)), true, if settings.animations { 0.12 } else { 0.0 });

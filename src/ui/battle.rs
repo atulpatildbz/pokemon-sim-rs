@@ -131,6 +131,11 @@ impl BattleView {
         }
     }
 
+    /// Back: close the bag if it is open. Returns whether it was.
+    pub fn close_bag(&mut self) -> bool {
+        std::mem::take(&mut self.bag_open)
+    }
+
     /// The player's POKéMON is on the field.
     pub fn own_out(&self) -> bool {
         self.own_species > 0
