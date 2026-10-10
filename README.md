@@ -32,7 +32,8 @@ identically on systems without those fonts.
 x64 `.exe` (zipped, cross-compiled with `brew install mingw-w64` + `rustup target add
 x86_64-pc-windows-gnu`) and an Android arm64 `.apk` signed with the release key
 (`~/.android/pokemon-sim-release.{jks,pass}`, not in the repo — back it up: Android only accepts
-updates signed with the same key). These binaries contain the original game files: keep them
+updates signed with the same key, and updating in place is what keeps players' saves; the
+APK's versionCode is derived from the Cargo version, so bump that for every release). These binaries contain the original game files: keep them
 private.
 
 ## Android

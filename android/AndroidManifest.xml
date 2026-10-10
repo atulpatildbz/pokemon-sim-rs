@@ -2,8 +2,9 @@
 <!-- NativeActivity app: no Java code; the activity loads libpokegame.so (android_main). -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.atulpatildbz.pokegame"
-    android:versionCode="2"
-    android:versionName="1.0.1">
+    android:versionCode="1"
+    android:versionName="0">
+    <!-- versionCode/versionName are set from Cargo.toml by scripts/build-android.sh. -->
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
 

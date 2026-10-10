@@ -28,6 +28,9 @@ fn android_main(app: winit::platform::android::activity::AndroidApp) {
         // Saves dropped into the app's external folder (adb push, a file manager:
         // Android/data/<package>/files/import/slotN.pgs) move into empty slots on launch.
         if let Some(ext) = app.external_data_path() {
+            // Created by the app itself so it owns the folder (folders made by adb are not
+            // readable by the app).
+            let _ = std::fs::create_dir_all(ext.join("import"));
             import_saves(&ext.join("import"), &p.join("saves"));
         }
     }
@@ -49,12 +52,20 @@ fn import_saves(from: &std::path::Path, to: &std::path::Path) {
     for n in 1..=ui::slots::COUNT {
         let name = format!("slot{n}.pgs");
         let (src, dst) = (from.join(&name), to.join(&name));
-        let ok = std::fs::read(&src).is_ok_and(|b| b.starts_with(b"VERSION2SAVEFILEIDENTIFIER"));
-        if ok && !dst.exists() {
-            let _ = std::fs::create_dir_all(to);
-            if std::fs::copy(&src, &dst).is_ok() {
-                let _ = std::fs::remove_file(&src);
+        match std::fs::read(&src) {
+            Ok(b) if b.starts_with(b"VERSION2SAVEFILEIDENTIFIER") && !dst.exists() => {
+                let _ = std::fs::create_dir_all(to);
+                match std::fs::write(&dst, &b) {
+                    Ok(()) => {
+                        let _ = std::fs::remove_file(&src);
+                        eprintln!("pokegame: imported {}", src.display());
+                    }
+                    Err(e) => eprintln!("pokegame: import {}: {e}", dst.display()),
+                }
             }
+            Ok(_) => {}
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => eprintln!("pokegame: import {}: {e}", src.display()),
+            Err(_) => {}
         }
     }
 }

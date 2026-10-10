@@ -19,7 +19,14 @@ cargo ndk -t arm64-v8a -P 26 build --release --lib
 
 rm -rf "$OUT" && mkdir -p "$OUT/flat" "$OUT/stage/lib/arm64-v8a"
 "$BT/aapt2" compile --dir android/res -o "$OUT/flat"
-"$BT/aapt2" link -o "$OUT/unsigned.apk" -I "$PLATFORM" --manifest android/AndroidManifest.xml "$OUT"/flat/*.flat
+# Version from Cargo.toml: versionName "1.2.3", versionCode 10203. It must grow with every release,
+# or Android refuses to install the update (and updates must keep the same signing key, which is
+# what keeps players' saves).
+VERSION=$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)
+IFS=. read -r MAJ MIN PAT <<< "$VERSION"
+CODE=$((MAJ * 10000 + MIN * 100 + PAT))
+"$BT/aapt2" link -o "$OUT/unsigned.apk" -I "$PLATFORM" --manifest android/AndroidManifest.xml \
+    --version-code "$CODE" --version-name "$VERSION" --replace-version "$OUT"/flat/*.flat
 cp target/aarch64-linux-android/release/libpokegame.so "$OUT/stage/lib/arm64-v8a/"
 (cd "$OUT/stage" && zip -q -r ../unsigned.apk lib)
 "$BT/zipalign" -f -p 4 "$OUT/unsigned.apk" "$OUT/aligned.apk"
