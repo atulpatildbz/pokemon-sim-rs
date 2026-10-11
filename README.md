@@ -85,10 +85,12 @@ folder (`saves/slot1..3.pgs`, ordinary `.pgs` files). Load also has Import / Exp
 `.pgs` between devices. Classic mode keeps the original file dialogs. `POKEGAME_DATA_DIR`
 overrides the app data folder.
 
-**Auto-save.** The original saves only when you quit. The game UI also saves automatically after
-every action at safe points (main window up, no battle or tournament, no dialog), using the
-original save format and serializer, written atomically. A mid-battle exit therefore loses only
-that battle. `tests/golden.rs` checks that auto-saving never changes the game.
+**Auto-save.** The original saves only when you quit the main window. The game UI also saves
+after every action, writing exactly what quitting at that moment would write (TForm4.FormClose
+with the original serializer, atomically): mid-battle that is the state as it stands, and in a
+tournament the quit penalty is included (applied to a copy, never to the running game). An app
+the system kills therefore behaves like a player who quit. `tests/golden.rs` checks auto-save
+never changes the game; `tests/headless.rs` checks the tournament case byte for byte.
 
 **Colour schemes.** Options › Color scheme: Sky (default), Twilight (dark), Pocket (four-shade
 handheld green), Lava, Forest, Sakura and Ocean. Defined in `src/ui/theme.rs` (`PALETTES`).

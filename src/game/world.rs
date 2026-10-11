@@ -587,24 +587,27 @@ impl World {
         Ok(None)
     }
 
-    /// Auto-save (front-end addition; the original saves only on quit). Runs only at points
-    /// where the original's own save would capture a consistent game: main window up, starter
-    /// chosen, no battle/tournament, no dialog open. Uses the original serializer, which only
-    /// reads state; the file is replaced atomically.
+    /// Auto-save (front-end addition): writes exactly what quitting the main window right now
+    /// would write (TForm4.FormClose), so an app the system kills behaves like a player who
+    /// quit — including a tournament's quit penalty, applied to a copy of the state only. Runs
+    /// at idle points (no dialog, no handler running); the file is replaced atomically.
     pub fn autosave_if_safe(&mut self) {
         if !self.autosave || !self.dialogs.is_empty() || self.terminated {
             return;
         }
-        let safe = self.forms[FORM4].visible
-            && !self.ctl_visible(FORM4, "ListView1")
-            && !self.m.in_wild_battle()
-            && !self.m.in_trainer_battle()
-            && !self.m.in_tournament();
+        // FormClose saves only once a starter has been chosen.
         let file = self.cr(FORM4, "SaveDialog1").file_name.clone();
-        if !safe || file.is_empty() {
+        if !self.forms[FORM4].visible || self.ctl_visible(FORM4, "ListView1") || file.is_empty() {
             return;
         }
-        let bytes = super::units::unit4::save_contents(self);
+        let bytes = if self.m.in_tournament() {
+            let mut m = self.m.clone();
+            let slot = m.cur_pkmn();
+            super::units::unit4::apply_quit_penalty(&mut m, slot);
+            super::units::unit4::save_contents(&m)
+        } else {
+            super::units::unit4::save_contents(&self.m)
+        };
         if bytes == self.last_autosave {
             return;
         }

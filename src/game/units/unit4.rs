@@ -74,9 +74,7 @@ fn toggle_check(w: &mut World, item: &str) -> R<()> {
 /// Shared by FormClose and Button1Click (Run in a tournament): lose Int(exp/20 + 0.5) exp and
 /// level down while level^3 > exp.
 fn quit_tournament_penalty(w: &mut World, slot: i32) -> R<()> {
-    let lost = Var::real(
-        F80::from_u32(w.m.pc_exp(slot)).div(F80::from_f32(20.0)).add(F80::from_f32(0.5)).int(),
-    );
+    let lost = penalty_lost(&w.m, slot);
     let sp = w.m.pc_species(slot);
     let s = crate::cat!(
         "Quit the tournament! ",
@@ -86,19 +84,38 @@ fn quit_tournament_penalty(w: &mut World, slot: i32) -> R<()> {
         " experience points!"
     )?;
     w.log(&s);
-    let new_exp = Var::longword(w.m.pc_exp(slot)).sub(lost);
-    w.m.set_pc_exp(slot, new_exp.to_i64() as u32);
-    let cube = |l: u8| (l as u32).wrapping_mul(l as u32).wrapping_mul(l as u32);
-    let mut done = w.m.pc_exp(slot) >= cube(w.m.pc_level(slot));
-    while !done {
-        w.m.set_pc_level(slot, w.m.pc_level(slot).wrapping_sub(1));
-        if cube(w.m.pc_level(slot)) <= w.m.pc_exp(slot) {
-            done = true;
-        }
+    // The name lookups below are the same as the one above, so they cannot fault once it
+    // succeeded: applying all state first and logging after is equivalent to the original's
+    // interleaving.
+    let levels = apply_quit_penalty(&mut w.m, slot);
+    for _ in 0..levels {
         let s = crate::cat!(&w.m.pkmn_name(w.m.pc_species(slot)), " lost a level!")?;
         w.log(&s);
     }
     Ok(())
+}
+
+/// Int(exp/20 + 0.5) on the x87.
+fn penalty_lost(m: &crate::game::mem::Mem, slot: i32) -> Var {
+    Var::real(F80::from_u32(m.pc_exp(slot)).div(F80::from_f32(20.0)).add(F80::from_f32(0.5)).int())
+}
+
+/// The state part of the quit penalty. Returns how many levels were lost.
+pub fn apply_quit_penalty(m: &mut crate::game::mem::Mem, slot: i32) -> u32 {
+    let lost = penalty_lost(m, slot);
+    let new_exp = Var::longword(m.pc_exp(slot)).sub(lost);
+    m.set_pc_exp(slot, new_exp.to_i64() as u32);
+    let cube = |l: u8| (l as u32).wrapping_mul(l as u32).wrapping_mul(l as u32);
+    let mut levels = 0;
+    let mut done = m.pc_exp(slot) >= cube(m.pc_level(slot));
+    while !done {
+        m.set_pc_level(slot, m.pc_level(slot).wrapping_sub(1));
+        if cube(m.pc_level(slot)) <= m.pc_exp(slot) {
+            done = true;
+        }
+        levels += 1;
+    }
+    levels
 }
 
 // ===================================================================================== part A
@@ -124,15 +141,21 @@ fn form_close(w: &mut World) -> R<()> {
 fn save(w: &mut World) -> R<()> {
     let file = w.cr(FORM4, "SaveDialog1").file_name.clone();
     let mut f = TextWriter::create(&file)?;
-    f.write_bytes(&save_contents(w));
+    f.write_bytes(&save_contents(&w.m));
     f.close()?;
     w.c(FORM4, "SaveDialog1").file_name.clear(); // yes, the original clears it
     Ok(())
 }
 
-/// The save file's bytes, exactly as TForm4.Save writes them. Reads state only (`&World`), so
-/// the front-end's auto-save can call it at any safe point without affecting the game.
-pub fn save_contents(w: &World) -> Vec<u8> {
+/// The save file's bytes, exactly as TForm4.Save writes them. Reads state only (`&Mem`), so
+/// the front-end's auto-save can call it without affecting the game.
+/// Lets the serializer body keep reading `w.m.…` like the original.
+struct W<'a> {
+    m: &'a crate::game::mem::Mem,
+}
+
+pub fn save_contents(m: &crate::game::mem::Mem) -> Vec<u8> {
+    let w = W { m };
     let mut f = TextWriter::memory();
     f.writeln("VERSION2SAVEFILEIDENTIFIER");
     f.writeln(&w.m.player_name());

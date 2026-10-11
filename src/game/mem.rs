@@ -129,6 +129,7 @@ macro_rules! cat {
     };
 }
 
+#[derive(Clone)]
 pub struct Mem {
     bytes: Vec<u8>,
     strings: HashMap<u32, String>,

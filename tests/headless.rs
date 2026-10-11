@@ -112,3 +112,40 @@ fn save_and_load_roundtrip() {
     assert_eq!(w2.lv_count(FORM5, "ListView1"), 1);
     assert_eq!(w2.cr(FORM5, "MoneyLbl").caption, "12345");
 }
+
+/// Auto-save mid-tournament writes exactly the file the original's quit (Form4.FormClose)
+/// writes at that moment: fee paid, quit penalty applied — and changes nothing in the game.
+#[test]
+fn tournament_autosave_matches_quit() {
+    let Some(mut w) = world() else { return };
+    let save = tmp("pg_tour_autosave.pgs");
+    new_game(&mut w, &save);
+    // Give the starter some experience so the penalty is visible, and money for the fee.
+    w.m.set_pc_exp(1, 300);
+    w.m.set_money(5000);
+    units::dispatch(&mut w, FORM4, "VeryEasyLevels2101Click").unwrap();
+    assert!(w.m.in_tournament());
+    assert_eq!(w.m.money(), 4000, "fee paid");
+    // Send out the starter (info + confirm Yes), then fight one turn.
+    w.c(FORM5, "ListView1").item_index = 0;
+    w.headless_answers.push(DialogAnswer::Button(1));
+    w.headless_answers.push(DialogAnswer::Button(6));
+    units::dispatch(&mut w, FORM5, "ListView1Click").unwrap();
+    w.c(FORM4, "RadioGroup1").item_index = 0;
+    units::dispatch(&mut w, FORM4, "Button1Click").unwrap();
+    assert!(w.m.in_tournament());
+
+    let before = (w.m.pc_exp(1), w.m.pc_level(1), w.m.money(), w.rng.seed);
+    w.autosave = true;
+    w.autosave_if_safe();
+    let auto = std::fs::read(&save).expect("auto-save written");
+    assert_eq!((w.m.pc_exp(1), w.m.pc_level(1), w.m.money(), w.rng.seed), before, "auto-save changed the game");
+
+    units::dispatch(&mut w, FORM4, "FormClose").unwrap();
+    let quit = std::fs::read(&save).unwrap();
+    assert_eq!(auto, quit, "auto-save differs from what quitting writes");
+    // And the penalty really is in there: experience went down from 300.
+    let text: String = quit.iter().map(|&b| b as char).collect();
+    let exp: u32 = text.lines().nth(19 + 386 + 2).unwrap().parse().unwrap();
+    assert!(exp < 300, "penalty applied (exp {exp})");
+}
