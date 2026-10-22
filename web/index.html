@@ -112,12 +112,15 @@
 
   // wasm threads need cross-origin isolation; the service worker adds the headers.
   async function isolate() {
-    if (self.crossOriginIsolated) { sessionStorage.removeItem('coi-reloaded'); return true; }
+    if (self.crossOriginIsolated) { sessionStorage.removeItem('coi-reloads'); return true; }
     if (!('serviceWorker' in navigator)) return false;
-    if (sessionStorage.getItem('coi-reloaded')) return false;
-    const reg = await navigator.serviceWorker.register('coi.js');
+    // A page can load without isolation even once the worker is in place (first visit, some
+    // reloads); reload, but give up after a few tries rather than loop.
+    const tries = Number(sessionStorage.getItem('coi-reloads') || 0);
+    if (tries >= 3) return false;
+    await navigator.serviceWorker.register('coi.js');
     await navigator.serviceWorker.ready;
-    sessionStorage.setItem('coi-reloaded', '1');
+    sessionStorage.setItem('coi-reloads', String(tries + 1));
     location.reload();
     return new Promise(() => {});
   }
@@ -155,21 +158,34 @@
 
   async function play(exe, dat, fromPicker) {
     status('Starting…');
+    // Kept before starting: the game keeps running inside start(), which may not return.
+    if (fromPicker) await putFiles(exe, dat);
     const pkg = await import('./pkg/pokegame.js');
     await pkg.default();
     document.body.classList.add('playing');
-    try {
-      await pkg.start('game', exe, dat);
-      $('game').focus();
-    } catch (e) {
+    let failed = false;
+    const recover = async (e) => {
+      if (failed) return;
+      failed = true;
       document.body.classList.remove('playing');
       await clearFiles();
       picked = { exe: null, dat: null };
       show();
       fail(`Those files did not work (${e}). Choose PokeGame.exe and POKéGAME.dat as extracted from PokeGame32.exe.`);
-      return;
+    };
+    // A crash right after starting means the files are wrong: forget them rather than
+    // show a blank page on every visit.
+    const started = Date.now();
+    const early = (e) => { if (Date.now() - started < 15000) recover(e.message || e.reason || e); };
+    addEventListener('error', early);
+    addEventListener('unhandledrejection', early);
+    setTimeout(() => { removeEventListener('error', early); removeEventListener('unhandledrejection', early); }, 15000);
+    $('game').focus();
+    try {
+      await pkg.start('game', exe, dat);
+    } catch (e) {
+      recover(e);
     }
-    if (fromPicker) await putFiles(exe, dat);
   }
 
   $('choose').addEventListener('click', () => $('picker').click());
@@ -203,6 +219,7 @@
       $('choose').disabled = true;
       return;
     }
+    if (new URLSearchParams(location.search).has('reset')) await clearFiles();
     const [exe, dat] = [await getFile('exe'), await getFile('dat')];
     if (exe && dat) play(exe, dat, false);
   })();
