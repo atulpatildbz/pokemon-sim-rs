@@ -10,7 +10,8 @@ use crate::vcl::runtime::{DialogAnswer, Event, Input, Snapshot};
 use std::collections::VecDeque;
 use std::io::Write;
 use std::sync::mpsc::Sender;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use web_time::Instant;
 
 pub struct Harness {
     shots_dir: Option<std::path::PathBuf>,

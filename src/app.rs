@@ -1,5 +1,5 @@
-//! The application: game logic thread + egui front-end, shared by the desktop binary and the
-//! Android library.
+//! The application: game logic thread + egui front-end, shared by the desktop binary, the
+//! Android library and the web build (`web.rs`).
 
 use crate::assets::Assets;
 use crate::debug::Harness;
@@ -7,7 +7,7 @@ use crate::game::world::World;
 use crate::ui::GameUi;
 use crate::vcl::runtime::{Bridge, Dialog, DialogAnswer, Input, Snapshot};
 use std::collections::HashSet;
-#[cfg(not(target_os = "android"))]
+#[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
 use std::path::Path;
 use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, Mutex};
@@ -21,6 +21,8 @@ pub struct App {
     answered: HashSet<u64>,
     screen: (i32, i32),
     harness: Harness,
+    #[cfg(target_arch = "wasm32")]
+    web: crate::web::Dialogs,
 }
 
 impl eframe::App for App {
@@ -30,10 +32,20 @@ impl eframe::App for App {
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let (snap, fx) = {
-            let mut s = self.snapshot.lock().unwrap();
+            let mut s = lock(&self.snapshot);
             let fx = std::mem::take(&mut s.fx);
             (s.clone(), fx)
         };
+        #[cfg(target_arch = "wasm32")]
+        {
+            crate::store::flush();
+            // The logic thread (a Web Worker) cannot wake this thread; poll instead.
+            ctx.request_repaint_after(std::time::Duration::from_millis(33));
+            if snap.quit {
+                crate::web::reload();
+                return;
+            }
+        }
         if snap.quit {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
@@ -68,6 +80,17 @@ impl eframe::App for App {
             if let Some(path) = self.harness.pending_file.take() {
                 self.answered.insert(*id);
                 let _ = self.tx.send(Input::Answer { id: *id, answer: DialogAnswer::File(Some(path)) });
+            } else if cfg!(target_arch = "wasm32") {
+                // Web: a slot picker (saves), a download (HTML export) or nothing (music).
+                #[cfg(target_arch = "wasm32")]
+                let _ = default_ext;
+                #[cfg(target_arch = "wasm32")]
+                if !self.answered.contains(id) {
+                    if let Some(answer) = self.web.file_dialog(ctx, *save, filter, initial) {
+                        self.answered.insert(*id);
+                        let _ = self.tx.send(Input::Answer { id: *id, answer: DialogAnswer::File(answer) });
+                    }
+                }
             } else if self.answered.insert(*id) {
                 #[cfg(target_os = "android")]
                 {
@@ -75,7 +98,7 @@ impl eframe::App for App {
                     let _ = (save, filter, default_ext, initial);
                     let _ = self.tx.send(Input::Answer { id: *id, answer: DialogAnswer::File(None) });
                 }
-                #[cfg(not(target_os = "android"))]
+                #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
                 {
                 let mut d = rfd::FileDialog::new();
                 let mut parts = filter.split('|');
@@ -127,42 +150,72 @@ impl eframe::App for App {
     }
 }
 
-/// Start the program with the two original files' contents and ParamStr(1..).
+/// Lock the snapshot. The web build's UI thread is the browser's main thread, which may not
+/// block on a lock, so it spins (the logic thread holds it only to copy a snapshot in).
+fn lock(m: &Mutex<Snapshot>) -> std::sync::MutexGuard<'_, Snapshot> {
+    if cfg!(target_arch = "wasm32") {
+        loop {
+            match m.try_lock() {
+                Ok(g) => return g,
+                Err(std::sync::TryLockError::Poisoned(p)) => return p.into_inner(),
+                Err(std::sync::TryLockError::WouldBlock) => std::hint::spin_loop(),
+            }
+        }
+    }
+    m.lock().unwrap_or_else(|p| p.into_inner())
+}
+
+impl App {
+    /// Start the program's logic thread with the two original files' contents and ParamStr(1..),
+    /// and the front-end that draws it.
+    pub fn new(cc: &eframe::CreationContext, exe: &[u8], dat: &[u8], params: Vec<String>) -> Result<App, String> {
+        let assets = Arc::new(Assets::from_bytes(exe, dat)?);
+        let data = crate::assets::data_section(exe);
+        let snapshot = Arc::new(Mutex::new(Snapshot::default()));
+        let (tx, rx) = channel();
+        let ui = GameUi::new(&cc.egui_ctx);
+        // Web: the UI polls instead (a Web Worker must not touch egui's locks).
+        let repaint: Box<dyn Fn() + Send> = if cfg!(target_arch = "wasm32") {
+            Box::new(|| {})
+        } else {
+            let ctx = cc.egui_ctx.clone();
+            Box::new(move || ctx.request_repaint())
+        };
+        let bridge = Bridge::new(snapshot.clone(), rx, repaint);
+        let assets_t = assets.clone();
+        let logic = move || {
+            let mut w = World::new(assets_t, &data, Some(bridge));
+            w.params = params;
+            w.autosave = true;
+            w.run();
+        };
+        #[cfg(not(target_arch = "wasm32"))]
+        std::thread::Builder::new().name("delphi-main".into()).spawn(logic).map_err(|e| e.to_string())?;
+        #[cfg(target_arch = "wasm32")]
+        wasm_thread::Builder::new().name("delphi-main".into()).spawn(logic).map_err(|e| e.to_string())?;
+        Ok(App {
+            assets,
+            snapshot,
+            tx,
+            ui,
+            audio: crate::ui::audio::Audio::new(),
+            answered: HashSet::new(),
+            screen: (0, 0),
+            harness: Harness::from_env(),
+            #[cfg(target_arch = "wasm32")]
+            web: crate::web::Dialogs::default(),
+        })
+    }
+}
+
+/// Desktop / Android: run the program in a native window.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn run(options: eframe::NativeOptions, exe: &[u8], dat: &[u8], params: Vec<String>) -> Result<(), String> {
-    let assets = Arc::new(Assets::from_bytes(exe, dat)?);
-    let data = crate::assets::data_section(exe);
-    let snapshot = Arc::new(Mutex::new(Snapshot::default()));
-    let (tx, rx) = channel();
-    let snap2 = snapshot.clone();
-    let assets2 = assets.clone();
+    let (exe, dat) = (exe.to_vec(), dat.to_vec());
     let result = eframe::run_native(
         "POKéMON Simulator",
         options,
-        Box::new(move |cc| {
-            let ui = GameUi::new(&cc.egui_ctx);
-            let ctx = cc.egui_ctx.clone();
-            let bridge = Bridge::new(snap2.clone(), rx, Box::new(move || ctx.request_repaint()));
-            let assets_t = assets2.clone();
-            std::thread::Builder::new()
-                .name("delphi-main".into())
-                .spawn(move || {
-                    let mut w = World::new(assets_t, &data, Some(bridge));
-                    w.params = params;
-                    w.autosave = true;
-                    w.run();
-                })
-                .expect("spawn logic thread");
-            Ok(Box::new(App {
-                assets: assets2,
-                snapshot: snap2,
-                tx,
-                ui,
-                audio: crate::ui::audio::Audio::new(),
-                answered: HashSet::new(),
-                screen: (0, 0),
-                harness: Harness::from_env(),
-            }))
-        }),
+        Box::new(move |cc| Ok(Box::new(App::new(cc, &exe, &dat, params)?))),
     );
     result.map_err(|e| e.to_string())
 }

@@ -11,7 +11,8 @@ use crate::vcl::model::{Control, Form, Kind, ListItem, TColor};
 use crate::vcl::runtime::{Bridge, Dialog, DialogAnswer, Event, Fx, Input, MsgDlgType, Timers, MB_OK, MR_CANCEL};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use web_time::Instant;
 
 /// Form indices (creation order of the original program main block, Form3 first = MainForm).
 pub type FormId = usize;
@@ -612,7 +613,7 @@ impl World {
             return;
         }
         let tmp = format!("{file}.tmp");
-        if std::fs::write(&tmp, &bytes).and_then(|_| std::fs::rename(&tmp, &file)).is_ok() {
+        if crate::store::write(&tmp, &bytes).and_then(|_| crate::store::rename(&tmp, &file)).is_ok() {
             self.last_autosave = bytes;
             self.autosaves += 1;
             self.publish(true);

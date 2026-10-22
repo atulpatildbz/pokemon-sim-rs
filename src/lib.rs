@@ -9,7 +9,10 @@ pub mod vcl;
 pub mod delphi;
 pub mod game;
 pub mod debug;
+pub mod store;
 pub mod ui;
+#[cfg(target_arch = "wasm32")]
+pub mod web;
 
 /// Android entry point (NativeActivity). The game files are compiled in (feature `bundled`);
 /// the app's data folder (settings, save slots, music) is its internal storage.

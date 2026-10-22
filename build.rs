@@ -57,6 +57,12 @@ fn main() {
     if std::env::var_os("CARGO_FEATURE_BUNDLED").is_none() {
         return;
     }
+    // Never in the web build: its output is published, and the game files are copyrighted
+    // (players pick their own copy in the browser instead).
+    if std::env::var("CARGO_CFG_TARGET_ARCH").as_deref() == Ok("wasm32") {
+        println!("cargo:warning=web build: not bundling the game files");
+        return;
+    }
     let dir = std::env::var_os("POKEGAME_DIR")
         .map(PathBuf::from)
         .unwrap_or_else(|| Path::new(env!("CARGO_MANIFEST_DIR")).join("../downloads/pokegame/extracted"));

@@ -3,6 +3,7 @@
 //! drum channel, rendered on the fly as a rodio `Source`. Songs are note lists: `C5:4` = C5 for
 //! four 16th-steps, `r:2` = rest; drums use `k` (kick), `s` (snare), `h` (hi-hat).
 
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
 const RATE: u32 = 44_100;
@@ -341,6 +342,7 @@ impl Iterator for Song {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 impl rodio::Source for Song {
     fn current_frame_len(&self) -> Option<usize> {
         None

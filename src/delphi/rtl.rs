@@ -15,8 +15,8 @@ impl DelphiRandom {
 
     /// Randomize: the original uses QueryPerformanceCounter's low dword (GetTickCount fallback).
     pub fn randomize(&mut self) {
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let nanos = web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
             .unwrap_or(0);
         self.seed = (nanos as u64 ^ (nanos >> 64) as u64) as i32;
@@ -115,6 +115,9 @@ pub fn shell_open(path: &str) {
     let _ = std::process::Command::new("cmd").args(["/C", "start", "", path]).spawn();
     #[cfg(all(unix, not(target_os = "macos")))]
     let _ = std::process::Command::new("xdg-open").arg(path).spawn();
+    // Web: the exported file was handed to the browser as a download (see `store`).
+    #[cfg(target_arch = "wasm32")]
+    let _ = path;
 }
 
 /// The subset of Delphi Variants the game uses: ordinal classes and Double.

@@ -5,6 +5,10 @@
 //! Forms without a bespoke screen yet are hosted generically: drawn by the VCL renderer in the
 //! game skin, scaled to fit their scene or sheet.
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod audio;
+#[cfg(target_arch = "wasm32")]
+#[path = "audio_web.rs"]
 pub mod audio;
 pub mod battle;
 pub mod chiptune;
@@ -79,6 +83,9 @@ pub struct GameUi {
     back_at: f64,
     /// Re-apply egui visuals on the next frame (scheme changed outside the Options sheet).
     restyle: bool,
+    /// Web: result of the last save upload, shown under Options › Saves.
+    #[cfg(target_arch = "wasm32")]
+    web_message: Option<String>,
 }
 
 impl GameUi {
@@ -113,6 +120,8 @@ impl GameUi {
             evolving: None,
             back_at: f64::NEG_INFINITY,
             restyle: false,
+            #[cfg(target_arch = "wasm32")]
+            web_message: None,
         };
         ui.apply_visuals(ctx);
         ui
@@ -243,7 +252,9 @@ impl GameUi {
             let mut open = true;
             egui::Window::new("Options").open(&mut open).collapsible(false).resizable(false).show(ctx, |ui| {
                 ui.set_width(320.0);
-                self.options_body(ui, ctx, snap, tx);
+                egui::ScrollArea::vertical().max_height(screen.height() - 90.0).min_scrolled_height(screen.height() - 90.0).show(ui, |ui| {
+                    self.options_body(ui, ctx, snap, tx);
+                });
             });
             if !open {
                 self.sheet = None;
@@ -893,6 +904,8 @@ impl GameUi {
                 self.apply_visuals(ctx);
             }
         }
+        // The web build has no audio output.
+        if !cfg!(target_arch = "wasm32") {
         row(ui, "Sound");
         let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
         let label = if self.settings.soundtrack { "Soundtrack: ON" } else { "Soundtrack: OFF" };
@@ -917,6 +930,12 @@ impl GameUi {
                     let _ = tx.send(Input::Menu { form: "Form4".into(), item: rep.name.clone() });
                 }
             }
+        }
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            row(ui, "Saves (kept in this browser)");
+            crate::web::save_backups(ui, width, &mut self.web_message);
         }
         ui.add_space(14.0);
         let (r, _) = ui.allocate_exact_size(Vec2::new(width, 22.0), Sense::hover());

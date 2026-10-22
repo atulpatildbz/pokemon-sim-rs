@@ -2,7 +2,7 @@
 //! `.pgs` files: the front-end just answers its Save/Open dialogs with a slot's path.
 
 use std::path::PathBuf;
-use std::time::SystemTime;
+use crate::store::{self, SystemTime};
 
 pub const COUNT: usize = 3;
 
@@ -29,8 +29,8 @@ pub struct Summary {
 
 pub fn summary(slot: usize) -> Option<Summary> {
     let p = path(slot)?;
-    let modified = std::fs::metadata(&p).and_then(|m| m.modified()).ok()?;
-    let bytes = std::fs::read(&p).ok()?;
+    let modified = store::modified(&p)?;
+    let bytes = store::read(&p).ok()?;
     // Latin-1 text with CRLF lines.
     let text: String = bytes.iter().map(|&b| b as char).collect();
     let lines: Vec<&str> = text.lines().collect();
@@ -58,23 +58,28 @@ pub fn latest() -> Option<usize> {
 
 pub fn ensure_dir() {
     if let Some(d) = dir() {
-        let _ = std::fs::create_dir_all(d);
+        let _ = store::create_dir_all(d);
     }
 }
 
 /// Copy a `.pgs` file into a slot (Import). Refuses files that are not saves.
 pub fn import(slot: usize, from: &std::path::Path) -> Result<(), String> {
-    let bytes = std::fs::read(from).map_err(|e| e.to_string())?;
+    let bytes = store::read(from).map_err(|e| e.to_string())?;
+    import_bytes(slot, &bytes)
+}
+
+/// Put a save's contents into a slot. Refuses files that are not saves.
+pub fn import_bytes(slot: usize, bytes: &[u8]) -> Result<(), String> {
     if !bytes.starts_with(b"VERSION2SAVEFILEIDENTIFIER") {
         return Err("That file is not a POKéMON Simulator save (.pgs).".into());
     }
     ensure_dir();
     let to = path(slot).ok_or("No app data folder")?;
-    std::fs::write(to, bytes).map_err(|e| e.to_string())
+    store::write(to, bytes).map_err(|e| e.to_string())
 }
 
 /// Copy a slot out to a `.pgs` file (Export).
 pub fn export(slot: usize, to: &std::path::Path) -> Result<(), String> {
     let from = path(slot).ok_or("No app data folder")?;
-    std::fs::copy(from, to).map(|_| ()).map_err(|e| e.to_string())
+    store::copy(from, to).map(|_| ()).map_err(|e| e.to_string())
 }

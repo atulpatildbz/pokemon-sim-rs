@@ -36,7 +36,7 @@ pub struct TextReader {
 impl TextReader {
     /// AssignFile + Reset.
     pub fn open(path: &str) -> R<TextReader> {
-        let data = std::fs::read(path).map_err(|e| io_err(&e))?;
+        let data = crate::store::read(path).map_err(|e| io_err(&e))?;
         Ok(TextReader { data, pos: 0 })
     }
     pub fn from_bytes(data: Vec<u8>) -> TextReader {
@@ -132,7 +132,7 @@ pub struct TextWriter {
 impl TextWriter {
     pub fn create(path: &str) -> R<TextWriter> {
         // Rewrite truncates/creates the file immediately.
-        std::fs::write(path, b"").map_err(|e| io_err(&e))?;
+        crate::store::write(path, b"").map_err(|e| io_err(&e))?;
         Ok(TextWriter { path: path.to_string(), buf: Vec::new() })
     }
     /// A writer that only collects bytes (no file).
@@ -158,7 +158,7 @@ impl TextWriter {
     }
     /// CloseFile.
     pub fn close(self) -> R<()> {
-        std::fs::write(&self.path, &self.buf).map_err(|e| io_err(&e))
+        crate::store::write(&self.path, &self.buf).map_err(|e| io_err(&e))
     }
 }
 

@@ -50,6 +50,23 @@ that slot on the next launch if the slot is empty. The launcher icon is drawn in
 regenerate with `GEN_ICONS=1 cargo test --test icons`). Two vendored one-line patches make egui
 behave on phones (see `[patch.crates-io]` in `Cargo.toml`).
 
+## Web
+
+Play at https://atulpatildbz.github.io/pokemon-sim-rs/. The page holds no game files: it asks once
+for `PokeGame.exe` and `POKéGAME.dat` from your own copy (extract `PokeGame32.exe` with 7-Zip) and
+keeps them in the browser (IndexedDB). Saves and settings live in the browser's localStorage, under
+three slots; Options (⚙) downloads a slot as a `.pgs` file or replaces it with an uploaded one.
+No audio on the web yet.
+
+    scripts/build-web.sh              # builds dist/web; serve it with any static web server
+
+Needs nightly Rust (`rustup target add wasm32-unknown-unknown --toolchain nightly`,
+`rustup component add rust-src --toolchain nightly`) and `wasm-bindgen-cli` at the version in
+`Cargo.lock`. The program's logic thread runs in a Web Worker (wasm threads), which needs
+cross-origin isolation; `web/coi.js` is a service worker that adds those headers, since GitHub
+Pages cannot. `build.rs` never bundles the game files into a web build. Pushing to `main` deploys
+via `.github/workflows/pages.yml`.
+
 ## How it is faithful
 
 - **Logic**: every event handler is a 1:1 port of the original (addresses cited in the source).

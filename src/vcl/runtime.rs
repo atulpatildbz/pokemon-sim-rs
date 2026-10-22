@@ -7,9 +7,12 @@
 //!   VCL modal message loop, including timers firing re-entrantly while a dialog is open.
 
 use super::model::Form;
-use std::sync::mpsc::{Receiver, RecvTimeoutError};
+#[cfg(not(target_arch = "wasm32"))]
+use std::sync::mpsc::RecvTimeoutError;
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
+use web_time::Instant;
 
 /// Delphi TMsgDlgType.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -185,22 +188,49 @@ impl Bridge {
         if !self.deferred.is_empty() {
             return Some(self.deferred.remove(0));
         }
-        let res = match deadline {
-            Some(d) => {
-                let now = Instant::now();
-                if d <= now {
-                    return None;
+        // Web: std's recv_timeout reads std's clock, which browsers lack; poll instead (this
+        // is the Web Worker, where sleeping is allowed).
+        #[cfg(target_arch = "wasm32")]
+        loop {
+            match self.inputs.try_recv() {
+                Ok(i) => return Some(i),
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    self.quit = true;
+                    return Some(Input::Quit);
                 }
-                self.inputs.recv_timeout(d - now)
+                Err(std::sync::mpsc::TryRecvError::Empty) => {}
             }
-            None => self.inputs.recv().map_err(|_| RecvTimeoutError::Disconnected),
-        };
-        match res {
-            Ok(i) => Some(i),
-            Err(RecvTimeoutError::Timeout) => None,
-            Err(RecvTimeoutError::Disconnected) => {
-                self.quit = true;
-                Some(Input::Quit)
+            let wait = match deadline {
+                Some(d) => {
+                    let now = Instant::now();
+                    if d <= now {
+                        return None;
+                    }
+                    (d - now).min(Duration::from_millis(4))
+                }
+                None => Duration::from_millis(4),
+            };
+            std::thread::sleep(wait);
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let res = match deadline {
+                Some(d) => {
+                    let now = Instant::now();
+                    if d <= now {
+                        return None;
+                    }
+                    self.inputs.recv_timeout(d - now)
+                }
+                None => self.inputs.recv().map_err(|_| RecvTimeoutError::Disconnected),
+            };
+            match res {
+                Ok(i) => Some(i),
+                Err(RecvTimeoutError::Timeout) => None,
+                Err(RecvTimeoutError::Disconnected) => {
+                    self.quit = true;
+                    Some(Input::Quit)
+                }
             }
         }
     }

@@ -156,6 +156,8 @@ pub struct Renderer {
     open_combo: Option<(String, String, Rect)>,
     /// Classic skin: keyboard shortcuts are live (no modal dialog, no text field focused).
     hotkeys: bool,
+    /// A text field had keyboard focus last frame (digits and Enter are typing then).
+    typing: bool,
     /// Classic skin, per memo: (line count last seen, first line of the latest update, when it last grew).
     memo_marks: HashMap<(String, String), (usize, usize, f64)>,
 }
@@ -249,7 +251,9 @@ impl Renderer {
             _ => None,
         };
         let any_modal = snap.dialog.is_some();
-        self.hotkeys = self.skin == Skin::Classic && !any_modal && !ctx.wants_keyboard_input();
+        // Not `wants_keyboard_input`: that is true whenever any widget (a clicked button) has focus.
+        let typing = std::mem::take(&mut self.typing);
+        self.hotkeys = self.skin == Skin::Classic && !any_modal && !typing;
         // Draw back to front in the logic thread's z-order; raise the top form when it changes.
         let mut order: Vec<&Form> = snap.forms.iter().filter(|f| f.visible).collect();
         order.sort_by_key(|f| snap.z_order.iter().position(|v| *v == f.var).unwrap_or(0));
@@ -502,6 +506,7 @@ impl Renderer {
                     edit = edit.char_limit(c.max_length as usize);
                 }
                 let resp = ui.put(rect, edit.interactive(!c.read_only));
+                self.typing |= resp.has_focus();
                 if resp.changed() {
                     let _ = tx.send(Input::SetText { form: form.var.clone(), control: c.name.clone(), text: buf.clone() });
                     send(Event::Change, &c.events.on_change);
@@ -704,6 +709,7 @@ impl Renderer {
                     dv = dv.range(c.min_value..=c.max_value);
                 }
                 let r = ui.put(rect, dv);
+                self.typing |= r.has_focus();
                 if r.changed() && v != c.value {
                     let _ = tx.send(Input::SetValue { form: form.var.clone(), control: c.name.clone(), value: v });
                     send(Event::Change, &c.events.on_change);
@@ -827,6 +833,8 @@ impl Renderer {
                     });
                 });
             }
+            // Web: the slot picker in `web.rs` answers file dialogs.
+            Dialog::File { .. } if cfg!(target_arch = "wasm32") => {}
             Dialog::File { save, title, initial, .. } => {
                 let key = ("file".to_string(), id.to_string());
                 let buf = self.edit_buffers.entry(key.clone()).or_insert_with(|| initial.clone());

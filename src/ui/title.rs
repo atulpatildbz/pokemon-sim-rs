@@ -202,7 +202,35 @@ impl Title {
                         click(tx, "LoadButton");
                     }
                 }
-                #[cfg(not(target_os = "android"))]
+                // Web: the browser's download / file picker instead of native dialogs.
+                #[cfg(target_arch = "wasm32")]
+                {
+                    if action(ui, "EXPORT", t::ButtonKind::Plain, sum.is_some()) {
+                        if let (Some(p), Some(m)) = (slots::path(slot), sum) {
+                            if let Ok(b) = crate::store::read(p) {
+                                crate::web::download(&format!("{}.pgs", m.name), &b);
+                            }
+                        }
+                    }
+                    let tag = format!("slot{slot}");
+                    if let Some((_, bytes)) = crate::web::take_upload(&tag) {
+                        match slots::import_bytes(slot, &bytes) {
+                            Ok(()) => self.refresh(),
+                            Err(e) => self.message = Some((e, now)),
+                        }
+                    }
+                    let confirming = self.confirm.is_some_and(|(s, at)| s == slot && now - at < 3.0);
+                    let label = if confirming { "REPLACE?" } else { "IMPORT" };
+                    if action(ui, label, if confirming { t::ButtonKind::Danger } else { t::ButtonKind::Plain }, true) {
+                        if sum.is_some() && !confirming {
+                            self.confirm = Some((slot, now));
+                        } else {
+                            self.confirm = None;
+                            crate::web::pick_file(&tag, ".pgs");
+                        }
+                    }
+                }
+                #[cfg(not(any(target_os = "android", target_arch = "wasm32")))]
                 {
                     if action(ui, "EXPORT", t::ButtonKind::Plain, sum.is_some()) {
                         let name = sum.as_ref().map_or("save".into(), |m| m.name.clone());

@@ -15,10 +15,22 @@ bundled = []
 eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
 egui = "0.31"
 ttf-parser = "0.25"
+# std::time::Instant / SystemTime, which also work in browsers (std's panic there).
+web-time = "1"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rodio = "0.20"
 
-[target.'cfg(not(target_os = "android"))'.dependencies]
+[target.'cfg(not(any(target_os = "android", target_arch = "wasm32")))'.dependencies]
 rfd = "0.15"
+
+# Web build (scripts/build-web.sh): the logic thread runs in a Web Worker (wasm threads).
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlCanvasElement", "HtmlAnchorElement", "HtmlInputElement", "Storage", "Blob", "BlobPropertyBag", "Url", "FileList", "File", "Location", "console"] }
+wasm_thread = { version = "0.3", features = ["es_modules"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "android-native-activity"] }

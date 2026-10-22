@@ -51,7 +51,7 @@ impl Default for Settings {
 }
 
 /// Per-platform app data folder: %APPDATA%\PokeGame, ~/Library/Application Support/PokeGame,
-/// $XDG_CONFIG_HOME/pokegame (or ~/.config/pokegame).
+/// $XDG_CONFIG_HOME/pokegame (or ~/.config/pokegame); `/data` in the web build's storage.
 /// `POKEGAME_DATA_DIR` overrides it (tests, portable installs).
 pub fn app_dir() -> Option<PathBuf> {
     if let Some(d) = std::env::var_os("POKEGAME_DATA_DIR") {
@@ -66,6 +66,9 @@ pub fn app_dir() -> Option<PathBuf> {
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
         .map(|d| d.join("pokegame"));
+    // Web: a virtual folder in the browser's storage (see `store`).
+    #[cfg(target_arch = "wasm32")]
+    let base = Some(PathBuf::from("/data"));
     base
 }
 
@@ -76,7 +79,7 @@ fn settings_path() -> Option<PathBuf> {
 impl Settings {
     pub fn load() -> Settings {
         let mut s = Settings::default();
-        let Some(text) = settings_path().and_then(|p| std::fs::read_to_string(p).ok()) else { return s };
+        let Some(text) = settings_path().and_then(|p| crate::store::read_to_string(p).ok()) else { return s };
         for line in text.lines() {
             let Some((k, v)) = line.split_once('=') else { continue };
             match (k.trim(), v.trim()) {
@@ -98,7 +101,7 @@ impl Settings {
     pub fn save(&self) {
         let Some(path) = settings_path() else { return };
         if let Some(dir) = path.parent() {
-            let _ = std::fs::create_dir_all(dir);
+            let _ = crate::store::create_dir_all(dir);
         }
         let text = format!(
             "text_speed={}\nclassic={}\nanimations={}\nsoundtrack={}\nscheme={}\n",
@@ -108,6 +111,6 @@ impl Settings {
             self.soundtrack,
             self.scheme
         );
-        let _ = std::fs::write(path, text);
+        let _ = crate::store::write(path, text);
     }
 }

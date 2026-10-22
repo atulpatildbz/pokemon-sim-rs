@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>POKéMON Simulator</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="BirdieSoft's POKéMON Simulator V4.5 (2004), ported to Rust and running in your browser with your own copy of the game.">
+<style>
+  @font-face { font-family: "Pixel Operator"; src: url("PixelOperator-Bold.ttf"); font-weight: 700; }
+  :root {
+    --desk-top: #1b2638; --desk-bottom: #344a6b;
+    --navy: #16233b; --red: #e23b47; --paper: #eceff3; --ink: #1e2530;
+    --muted: #5d6b80; --edge: #a9b2bf; --accent: #2f6fde;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: linear-gradient(var(--desk-top), var(--desk-bottom)) fixed;
+    color: var(--ink);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: none; outline: none; }
+  body.playing #game { display: block; }
+  body.playing #setup { display: none; }
+
+  #setup { min-height: 100%; display: grid; place-items: center; padding: 24px 16px; }
+  .window {
+    width: min(460px, 100%);
+    background: var(--paper);
+    border: 1px solid #6b778a;
+    border-radius: 4px;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, .45);
+    overflow: hidden;
+  }
+  .titlebar {
+    display: flex; align-items: center; gap: 10px;
+    height: 30px; padding: 0 12px;
+    background: var(--navy); color: #fff;
+    border-bottom: 2px solid var(--red);
+    font-size: 14px;
+  }
+  .ball { width: 14px; height: 14px; flex: none; }
+  .body { padding: 22px 24px 20px; }
+  h1 {
+    margin: 0 0 14px;
+    font: 700 34px/1 "Pixel Operator", system-ui, sans-serif;
+    letter-spacing: .5px;
+    color: var(--navy);
+  }
+  p { margin: 0 0 12px; }
+  .files { margin: 0 0 16px; padding: 10px 12px; background: #fff; border: 1px solid var(--edge); border-radius: 3px; }
+  .files div { display: flex; justify-content: space-between; gap: 12px; }
+  .files span:last-child { color: var(--muted); }
+  .files .ok { color: #2b8a52; }
+  button {
+    font: inherit; color: #fff; background: var(--accent);
+    border: 1px solid #1e55b8; border-radius: 3px;
+    padding: 8px 18px; cursor: pointer;
+  }
+  button:hover { background: #4a86ee; }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button[disabled] { opacity: .5; cursor: default; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .error { color: #9a1f1f; background: #fdeeee; border: 1px solid #d07878; border-radius: 3px; padding: 8px 10px; }
+  .error:empty { display: none; }
+  .foot { margin-top: 18px; padding-top: 12px; border-top: 1px solid #d3d9e1; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  a { color: var(--accent); }
+  .linkish { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font-size: 13px; }
+  .linkish:hover { background: none; }
+  #status { min-height: 1.5em; }
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0"></canvas>
+
+<main id="setup">
+  <section class="window" aria-labelledby="heading">
+    <div class="titlebar">
+      <svg class="ball" viewBox="0 0 14 14" aria-hidden="true">
+        <circle cx="7" cy="7" r="6.2" fill="#f4f6fa" stroke="#16233b" stroke-width="1.2"/>
+        <path d="M.8 7a6.2 6.2 0 0 1 12.4 0z" fill="#e23b47"/>
+        <path d="M.8 7h12.4" stroke="#16233b" stroke-width="1.4"/>
+        <circle cx="7" cy="7" r="2.3" fill="#f4f6fa" stroke="#16233b" stroke-width="1.2"/>
+      </svg>
+      POKéMON Simulator V4.5
+    </div>
+    <div class="body">
+      <h1 id="heading">POKéMON Simulator</h1>
+      <p>BirdieSoft's 2004 game, running in your browser. It needs two files from your own copy of the game:</p>
+      <div class="files" id="files">
+        <div><span>PokeGame.exe</span><span id="exe-state">not chosen</span></div>
+        <div><span>POKéGAME.dat</span><span id="dat-state">not chosen</span></div>
+      </div>
+      <p class="error" id="error" role="alert"></p>
+      <p><button id="choose" type="button">Choose game files</button></p>
+      <p class="hint">Both are inside the installer, PokeGame32.exe; open it with 7-Zip to extract them. They stay in this browser and are never uploaded.</p>
+      <p class="hint" id="status" aria-live="polite"></p>
+      <div class="foot hint">
+        <span>Saves are kept in this browser. Back them up under Options (⚙).</span>
+        <a href="https://github.com/atulpatildbz/pokemon-sim-rs">Source</a>
+      </div>
+    </div>
+  </section>
+  <input id="picker" type="file" accept=".exe,.dat" multiple hidden>
+</main>
+
+<script type="module">
+  const $ = (id) => document.getElementById(id);
+  const status = (msg) => { $('status').textContent = msg; };
+  const fail = (msg) => { $('error').textContent = msg; status(''); $('choose').disabled = false; };
+
+  // wasm threads need cross-origin isolation; the service worker adds the headers.
+  async function isolate() {
+    if (self.crossOriginIsolated) { sessionStorage.removeItem('coi-reloaded'); return true; }
+    if (!('serviceWorker' in navigator)) return false;
+    if (sessionStorage.getItem('coi-reloaded')) return false;
+    const reg = await navigator.serviceWorker.register('coi.js');
+    await navigator.serviceWorker.ready;
+    sessionStorage.setItem('coi-reloaded', '1');
+    location.reload();
+    return new Promise(() => {});
+  }
+
+  // The game files live in IndexedDB (PokeGame.exe is 9 MB, too big for localStorage).
+  function db() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open('pokegame', 1);
+      req.onupgradeneeded = () => req.result.createObjectStore('files');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idb(mode, fn) {
+    const d = await db();
+    return new Promise((resolve, reject) => {
+      const tx = d.transaction('files', mode);
+      const req = fn(tx.objectStore('files'));
+      tx.oncomplete = () => resolve(req && req.result);
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+  const getFile = (k) => idb('readonly', (s) => s.get(k));
+  const putFiles = (exe, dat) => idb('readwrite', (s) => { s.put(exe, 'exe'); s.put(dat, 'dat'); });
+  const clearFiles = () => idb('readwrite', (s) => s.clear());
+
+  let picked = { exe: null, dat: null };
+
+  function show() {
+    $('exe-state').textContent = picked.exe ? 'ready' : 'not chosen';
+    $('dat-state').textContent = picked.dat ? 'ready' : 'not chosen';
+    $('exe-state').className = picked.exe ? 'ok' : '';
+    $('dat-state').className = picked.dat ? 'ok' : '';
+  }
+
+  async function play(exe, dat, fromPicker) {
+    status('Starting…');
+    const pkg = await import('./pkg/pokegame.js');
+    await pkg.default();
+    document.body.classList.add('playing');
+    try {
+      await pkg.start('game', exe, dat);
+      $('game').focus();
+    } catch (e) {
+      document.body.classList.remove('playing');
+      await clearFiles();
+      picked = { exe: null, dat: null };
+      show();
+      fail(`Those files did not work (${e}). Choose PokeGame.exe and POKéGAME.dat as extracted from PokeGame32.exe.`);
+      return;
+    }
+    if (fromPicker) await putFiles(exe, dat);
+  }
+
+  $('choose').addEventListener('click', () => $('picker').click());
+  $('picker').addEventListener('change', async () => {
+    $('error').textContent = '';
+    for (const f of $('picker').files) {
+      const bytes = new Uint8Array(await f.arrayBuffer());
+      const name = f.name.toLowerCase();
+      if (name.endsWith('.dat')) picked.dat = bytes;
+      else if (name.endsWith('.exe') && bytes[0] === 0x4d && bytes[1] === 0x5a) {
+        if (bytes.length > 20e6 || name.includes('32')) {
+          fail('That looks like the installer (PokeGame32.exe). Extract it with 7-Zip and choose the PokeGame.exe inside.');
+          continue;
+        }
+        picked.exe = bytes;
+      }
+    }
+    $('picker').value = '';
+    show();
+    if (picked.exe && picked.dat) {
+      $('choose').disabled = true;
+      play(picked.exe, picked.dat, true);
+    } else if (!$('error').textContent) {
+      status(picked.exe ? 'Now choose POKéGAME.dat.' : 'Now choose PokeGame.exe.');
+    }
+  });
+
+  (async () => {
+    if (!(await isolate())) {
+      fail('This browser cannot run the game here (it needs cross-origin isolation for threads). Try a current Chrome, Edge, Firefox or Safari.');
+      $('choose').disabled = true;
+      return;
+    }
+    const [exe, dat] = [await getFile('exe'), await getFile('dat')];
+    if (exe && dat) play(exe, dat, false);
+  })();
+</script>
+</body>
+</html>
