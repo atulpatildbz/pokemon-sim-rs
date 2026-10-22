@@ -9,24 +9,27 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 
 pub const MENU_HEIGHT: f32 = 20.0;
+/// Height of the classic skin's own title bar (replaces egui's, which was oversized).
+const TITLE_HEIGHT: f32 = 24.0;
 
 
-/// Windows XP-era system colours for D7's `$FF0000xx` encoding.
+/// System colours for D7's `$FF0000xx` encoding, mapped to the classic skin's cool-grey palette
+/// (the original's beige D4D0C8 / navy highlight are what made it look like Windows 7).
 pub fn tcolor(c: TColor) -> Color32 {
     let rgb = if c & 0xFF00_0000 != 0 {
         match c & 0xFF {
             0x05 => 0xFFFFFF, // clWindow
-            0x08 => 0x000000, // clWindowText
-            0x0F => 0xC8D0D4, // clBtnFace (BGR of D4D0C8)
-            0x12 => 0x000000, // clBtnText
-            0x0D => 0x6A240A, // clHighlight (BGR)
+            0x08 => 0x30251E, // clWindowText (BGR of 1E2530)
+            0x0F => 0xF3EFEC, // clBtnFace (BGR of ECEFF3)
+            0x12 => 0x30251E, // clBtnText
+            0x0D => 0xDE6F2F, // clHighlight (BGR of 2F6FDE)
             0x0E => 0xFFFFFF,
             0x11 => 0x808080,
-            0x10 => 0x808080, // clBtnShadow
+            0x10 => 0xA3948A, // clBtnShadow
             0x14 => 0xFFFFFF, // clBtnHighlight
             0x04 => 0xFFFFFF,
             0x18 => 0xE1FFFF,
-            _ => 0xC8D0D4,
+            _ => 0xF3EFEC,
         }
     } else {
         c & 0xFFFFFF
@@ -73,25 +76,39 @@ pub fn add_system_fonts(fonts: &mut egui::FontDefinitions) {
     }
 }
 
-/// Windows classic look.
+pub const ACCENT: Color32 = Color32::from_rgb(0x2F, 0x6F, 0xDE);
+const EDGE: Color32 = Color32::from_rgb(0xA9, 0xB2, 0xBF);
+const INK: Color32 = Color32::from_rgb(0x1E, 0x25, 0x30);
+
+/// The classic skin: the original forms and layout, drawn flat and cool-grey with an accent
+/// colour for hover/selection instead of Windows 7's bevels.
 pub fn classic_visuals(ctx: &egui::Context) {
-    // Windows classic look: light theme, square corners, btnface buttons.
     let mut v = egui::Visuals::light();
     let face = tcolor(CL_BTN_FACE);
     v.window_fill = face;
     v.panel_fill = face;
-    v.window_corner_radius = egui::CornerRadius::ZERO;
-    v.menu_corner_radius = egui::CornerRadius::ZERO;
+    v.window_corner_radius = egui::CornerRadius::same(3);
+    v.menu_corner_radius = egui::CornerRadius::same(3);
+    v.window_stroke = Stroke::new(1.0, Color32::from_rgb(0x6B, 0x77, 0x8A));
+    v.window_shadow = egui::Shadow { offset: [0, 6], blur: 20, spread: 0, color: Color32::from_black_alpha(90) };
+    v.popup_shadow = egui::Shadow { offset: [0, 3], blur: 10, spread: 0, color: Color32::from_black_alpha(60) };
+    v.extreme_bg_color = Color32::WHITE;
+    v.selection.bg_fill = ACCENT;
+    v.selection.stroke = Stroke::new(1.5, ACCENT);
     for w in [&mut v.widgets.inactive, &mut v.widgets.hovered, &mut v.widgets.active, &mut v.widgets.open, &mut v.widgets.noninteractive] {
-        w.corner_radius = egui::CornerRadius::ZERO;
-        w.fg_stroke.color = Color32::BLACK;
+        w.corner_radius = egui::CornerRadius::same(3);
+        w.fg_stroke.color = INK;
     }
-    v.widgets.inactive.bg_fill = face;
-    v.widgets.inactive.weak_bg_fill = face;
-    v.widgets.inactive.bg_stroke = Stroke::new(1.0, Color32::from_gray(64));
-    v.widgets.hovered.weak_bg_fill = Color32::from_rgb(0xE0, 0xDD, 0xD6);
-    v.widgets.active.weak_bg_fill = Color32::from_rgb(0xB8, 0xB4, 0xAC);
-    v.widgets.noninteractive.fg_stroke.color = Color32::BLACK;
+    v.widgets.inactive.bg_fill = Color32::from_rgb(0xF8, 0xF9, 0xFB);
+    v.widgets.inactive.weak_bg_fill = Color32::from_rgb(0xF8, 0xF9, 0xFB);
+    v.widgets.inactive.bg_stroke = Stroke::new(1.0, EDGE);
+    v.widgets.hovered.bg_fill = Color32::from_rgb(0xE3, 0xEC, 0xFB);
+    v.widgets.hovered.weak_bg_fill = Color32::from_rgb(0xE3, 0xEC, 0xFB);
+    v.widgets.hovered.bg_stroke = Stroke::new(1.0, ACCENT);
+    v.widgets.active.bg_fill = Color32::from_rgb(0xCB, 0xDB, 0xF6);
+    v.widgets.active.weak_bg_fill = Color32::from_rgb(0xCB, 0xDB, 0xF6);
+    v.widgets.active.bg_stroke = Stroke::new(1.0, ACCENT);
+    v.widgets.noninteractive.bg_stroke = Stroke::new(1.0, EDGE);
     v.override_text_color = None;
     ctx.set_visuals(v);
 }
@@ -137,6 +154,10 @@ pub struct Renderer {
     raise_seq: u64,
     /// Game skin: the combo box whose drop-down list is open, and where its box was drawn.
     open_combo: Option<(String, String, Rect)>,
+    /// Classic skin: keyboard shortcuts are live (no modal dialog, no text field focused).
+    hotkeys: bool,
+    /// Classic skin, per memo: (line count last seen, first line of the latest update, when it last grew).
+    memo_marks: HashMap<(String, String), (usize, usize, f64)>,
 }
 
 fn to_color_image(img: &Rgba) -> egui::ColorImage {
@@ -211,14 +232,24 @@ impl Renderer {
 
     /// Render the whole desktop. `blocked` forms (behind a modal) ignore input.
     pub fn show(&mut self, ctx: &egui::Context, snap: &Snapshot, assets: &Assets, tx: &Sender<Input>) {
-        egui::CentralPanel::default()
-            .frame(egui::Frame::new().fill(Color32::from_rgb(0x3A, 0x6E, 0xA5)))
-            .show(ctx, |_ui| {});
+        egui::CentralPanel::default().frame(egui::Frame::new()).show(ctx, |ui| {
+            let r = ui.max_rect();
+            let (top, bottom) = (Color32::from_rgb(0x1B, 0x26, 0x38), Color32::from_rgb(0x34, 0x4A, 0x6B));
+            let mut mesh = egui::Mesh::default();
+            mesh.colored_vertex(r.left_top(), top);
+            mesh.colored_vertex(r.right_top(), top);
+            mesh.colored_vertex(r.right_bottom(), bottom);
+            mesh.colored_vertex(r.left_bottom(), bottom);
+            mesh.add_triangle(0, 1, 2);
+            mesh.add_triangle(0, 2, 3);
+            ui.painter().add(mesh);
+        });
         let modal_form = match &snap.dialog {
             Some((_, Dialog::ModalForm { var })) => Some(var.clone()),
             _ => None,
         };
         let any_modal = snap.dialog.is_some();
+        self.hotkeys = self.skin == Skin::Classic && !any_modal && !ctx.wants_keyboard_input();
         // Draw back to front in the logic thread's z-order; raise the top form when it changes.
         let mut order: Vec<&Form> = snap.forms.iter().filter(|f| f.visible).collect();
         order.sort_by_key(|f| snap.z_order.iter().position(|v| *v == f.var).unwrap_or(0));
@@ -226,7 +257,8 @@ impl Renderer {
         self.raise_seq = snap.raise_seq;
         for form in &order {
             let interactive = !any_modal || modal_form.as_deref() == Some(form.var.as_str());
-            self.show_form(ctx, form, assets, tx, interactive);
+            let active = snap.z_order.last().is_some_and(|v| *v == form.var);
+            self.show_form(ctx, form, assets, tx, interactive, active);
         }
         if raised {
             if let Some(top) = snap.z_order.last() {
@@ -241,31 +273,34 @@ impl Renderer {
         }
     }
 
-    fn show_form(&mut self, ctx: &egui::Context, form: &Form, assets: &Assets, tx: &Sender<Input>, interactive: bool) {
+    fn show_form(&mut self, ctx: &egui::Context, form: &Form, assets: &Assets, tx: &Sender<Input>, interactive: bool, active: bool) {
         let menu_h = if form.menu.is_empty() { 0.0 } else { MENU_HEIGHT };
-        let size = Vec2::new(form.client_width as f32, form.client_height as f32 + menu_h);
-        let mut open = true;
+        let client = Vec2::new(form.client_width as f32, form.client_height as f32 + menu_h);
+        let size = client + Vec2::new(0.0, TITLE_HEIGHT);
+        let mut closed = false;
         let pos = (form.left, form.top);
         // Always place the window where the model says; a user drag shows up as a rect that
         // differs from the model in the same frame and is reported back as Moved.
-        let moved_by_code = true;
-        let mut win = egui::Window::new(strip_amp(&form.caption))
+        let top_radius = egui::CornerRadius { nw: 3, ne: 3, sw: 0, se: 0 };
+        let win = egui::Window::new(strip_amp(&form.caption))
             .id(egui::Id::new(("form", &form.var)))
             .fixed_size(size)
+            .title_bar(false)
             .collapsible(false)
             .resizable(false)
             .interactable(interactive)
-            .frame(egui::Frame::window(&ctx.style()).fill(tcolor(form.color)).inner_margin(0.0));
-        if moved_by_code {
-            win = win.current_pos(Pos2::new(form.left as f32, form.top as f32));
-        }
-        if form.close_box {
-            win = win.open(&mut open);
-        }
+            .frame(egui::Frame::window(&ctx.style()).fill(if form.var == "Form1" { NAVY } else { tcolor(form.color) }).inner_margin(0.0))
+            .current_pos(Pos2::new(form.left as f32, form.top as f32));
         let resp = win.show(ctx, |ui| {
             ui.set_min_size(size);
             ui.set_max_size(size);
-            self.form_body(ui, form, assets, tx, interactive, true);
+            let origin = ui.min_rect().min;
+            let bar = Rect::from_min_size(origin, Vec2::new(size.x, TITLE_HEIGHT));
+            closed = title_bar(ui, bar, &strip_amp(&form.caption), form.close_box && interactive, active, top_radius);
+            let body = Rect::from_min_size(origin + Vec2::new(0.0, TITLE_HEIGHT), client);
+            ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| {
+                self.form_body(ui, form, assets, tx, interactive, true);
+            });
         });
         if let Some(r) = resp {
             let p = (r.response.rect.left().round() as i32, r.response.rect.top().round() as i32);
@@ -275,7 +310,7 @@ impl Renderer {
                 let _ = tx.send(Input::Moved { form: form.var.clone(), left: p.0, top: p.1 });
             }
         }
-        if !open {
+        if closed {
             let _ = tx.send(Input::CloseForm { form: form.var.clone() });
         }
     }
@@ -354,18 +389,27 @@ impl Renderer {
     }
 
     fn menu_bar(&mut self, ui: &mut egui::Ui, form: &Form, tx: &Sender<Input>, interactive: bool) {
+        let top = ui.min_rect().min;
         egui::menu::bar(ui, |ui| {
             ui.set_height(MENU_HEIGHT);
             for item in form.menu.iter().filter(|m| m.visible) {
                 menu_item(ui, form, item, tx, interactive, true);
             }
         });
+        if self.skin == Skin::Classic {
+            let y = top.y + MENU_HEIGHT - 0.5;
+            ui.painter().hline(top.x..=top.x + form.client_width as f32, y, Stroke::new(1.0, Color32::from_rgb(0xD3, 0xD9, 0xE1)));
+        }
     }
 
     fn control(&mut self, ui: &mut egui::Ui, form: &Form, i: usize, client: Pos2, assets: &Assets, tx: &Sender<Input>) {
         let c = &form.controls[i];
         let (x, y) = form.abs_pos(i);
-        let rect = Rect::from_min_size(client + Vec2::new(x as f32, y as f32), Vec2::new(c.width as f32, c.height as f32));
+        let mut rect = Rect::from_min_size(client + Vec2::new(x as f32, y as f32), Vec2::new(c.width as f32, c.height as f32));
+        // Classic skin: controls the original placed flush against the window edge get a gutter.
+        if self.skin == Skin::Classic && x == 0 && matches!(c.kind, Kind::Label | Kind::Button) {
+            rect.min.x += 5.0;
+        }
         let enabled = c.enabled && ancestors_enabled(form, i);
         let send = |e: Event, h: &Option<String>| {
             if h.is_some() {
@@ -385,7 +429,16 @@ impl Renderer {
                     2 => (Align2::CENTER_TOP, rect.center_top()),
                     _ => (Align2::LEFT_TOP, rect.left_top()),
                 };
-                painter.text(pos, anchor, strip_amp(&c.caption), fid, fcol);
+                let caption = strip_amp(&c.caption);
+                // Classic skin: "Name:"-style captions recede so the values next to them read first;
+                // the title screen's labels go white on navy.
+                let is_text_color = matches!(c.font.color, 0 | 0xFF00_0008 | 0xFF00_0012);
+                let fcol = match self.skin {
+                    Skin::Classic if form.var == "Form1" => Color32::WHITE,
+                    Skin::Classic if enabled && is_text_color && caption.trim_end().ends_with(':') => MUTED,
+                    _ => fcol,
+                };
+                painter.text(pos, anchor, caption, fid, fcol);
             }
             Kind::Button if self.skin == Skin::Game => {
                 let kind = if c.name.contains("End") || c.caption.contains("Cancel") {
@@ -400,10 +453,43 @@ impl Renderer {
                 }
             }
             Kind::Button => {
-                let resp = ui.put(
-                    rect,
-                    egui::Button::new(egui::RichText::new(strip_amp(&c.caption)).font(fid)).min_size(rect.size()),
-                );
+                let resp = ui.interact(rect, ui.id().with(("btn", &c.name)), Sense::click());
+                let hot = enabled && resp.hovered();
+                let down = hot && resp.is_pointer_button_down_on();
+                let primary = c.caption.contains("Go!");
+                let danger = c.name.contains("End") || c.caption.contains("Cancel");
+                let title_screen = form.var == "Form1";
+                let (fill, edge, text) = match (primary, danger, enabled) {
+                    (_, _, false) => (tcolor(CL_BTN_FACE), Color32::from_rgb(0xDD, 0xE2, 0xE8), Color32::from_rgb(0x8A, 0x95, 0xA5)),
+                    _ if title_screen => (
+                        if down { Color32::from_white_alpha(40) } else if hot { Color32::from_rgba_unmultiplied(0x2F, 0x6F, 0xDE, 200) } else { Color32::from_white_alpha(14) },
+                        if hot { ACCENT } else { Color32::from_white_alpha(40) },
+                        Color32::WHITE,
+                    ),
+                    (true, _, _) => (if down { Color32::from_rgb(0x1E, 0x55, 0xB8) } else if hot { Color32::from_rgb(0x4A, 0x86, 0xEE) } else { ACCENT }, Color32::from_rgb(0x1E, 0x55, 0xB8), Color32::WHITE),
+                    (_, true, _) => (if down { Color32::from_rgb(0xF2, 0xC4, 0xC4) } else if hot { Color32::from_rgb(0xFB, 0xDD, 0xDD) } else { Color32::from_rgb(0xFD, 0xEE, 0xEE) }, Color32::from_rgb(0xD0, 0x78, 0x78), Color32::from_rgb(0x9A, 0x1F, 0x1F)),
+                    _ => (if down { Color32::from_rgb(0xCB, 0xDB, 0xF6) } else if hot { Color32::from_rgb(0xE3, 0xEC, 0xFB) } else { Color32::from_rgb(0xF8, 0xF9, 0xFB) }, if hot { ACCENT } else { EDGE }, INK),
+                };
+                // The title screen's buttons are stacked flush; inset the drawing (not the hit area)
+                // so they read as separate choices.
+                let face = if title_screen { rect.shrink2(Vec2::new(0.0, 3.0)) } else { rect };
+                painter.rect_filled(face, 4.0, fill);
+                painter.rect_stroke(face, 4.0, Stroke::new(1.0, edge), StrokeKind::Inside);
+                if resp.has_focus() {
+                    painter.rect_stroke(face.shrink(2.0), 2.0, Stroke::new(1.0, ACCENT), StrokeKind::Inside);
+                }
+                // Captions padded with trailing spaces ("POKéBalls:      ") were the original's way
+                // of pushing text left; honour that intent with real left alignment.
+                let caption = strip_amp(&c.caption);
+                let (anchor, at) = if caption.ends_with(' ') {
+                    (Align2::LEFT_CENTER, face.left_center() + Vec2::new(6.0, 0.0))
+                } else {
+                    (Align2::CENTER_CENTER, face.center())
+                };
+                painter.text(at + Vec2::new(0.0, if down { 1.0 } else { 0.0 }), anchor, caption.trim_end(), fid, text);
+                if hot {
+                    ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                }
                 if enabled && resp.clicked() {
                     send(Event::Click, &c.events.on_click);
                 }
@@ -426,17 +512,40 @@ impl Renderer {
             Kind::Memo => {
                 painter.rect_filled(rect, 0.0, self.col(c.color));
                 self.bevel(&painter, rect, true);
-                let text = c.items.join("\n");
-                ui.scope_builder(egui::UiBuilder::new().max_rect(rect.shrink(3.0)), |ui| {
+                // Classic skin: the lines added by the latest update stay in full ink and older ones
+                // fade, so what just happened in a battle is visible without re-reading the log.
+                // Lines arriving within 1.5 s of each other count as one update.
+                let n = c.items.len();
+                let now = ui.input(|inp| inp.time);
+                let mark = self.memo_marks.entry((form.var.clone(), c.name.clone())).or_insert((n, 0, f64::MIN));
+                if mark.0 != n {
+                    let from = if n < mark.0 { 0 } else if now - mark.2 < 1.5 { mark.1 } else { mark.0 };
+                    *mark = (n, from, now);
+                }
+                let fresh_from = if self.skin == Skin::Classic { mark.1 } else { 0 };
+                let mut job = egui::text::LayoutJob::default();
+                for (k, line) in c.items.iter().enumerate() {
+                    let fresh = k >= fresh_from;
+                    let color = if fresh { fcol } else { MUTED };
+                    let text = if k + 1 < n { format!("{line}\n") } else { line.clone() };
+                    let line_height = (self.skin == Skin::Classic).then_some(fid.size + 4.0);
+                    job.append(&text, 0.0, egui::TextFormat { font_id: fid.clone(), color, line_height, ..Default::default() });
+                }
+                job.wrap.max_width = rect.width() - 14.0;
+                ui.scope_builder(egui::UiBuilder::new().max_rect(rect.shrink2(Vec2::new(5.0, 4.0))), |ui| {
                     egui::ScrollArea::vertical().id_salt(("memo", &form.var, &c.name)).stick_to_bottom(true).show(ui, |ui| {
-                        ui.set_width(rect.width() - 8.0);
-                        ui.label(egui::RichText::new(text).font(fid).color(fcol));
+                        ui.set_width(rect.width() - 14.0);
+                        ui.label(job);
                     });
                 });
             }
             Kind::ListView => self.list_view(ui, form, c, rect, assets, tx),
             Kind::RadioGroup => {
                 self.group(&painter, rect, &c.caption, &fid, fcol);
+                // Classic skin: a visible, enabled "Go!" next to this group makes it the battle's
+                // attack list, with 1-9 / Enter / double-click shortcuts.
+                let go = if self.skin == Skin::Classic { go_button(form, i) } else { None };
+                let mut fire = false;
                 let n = c.items.len().max(1);
                 let cols = c.columns.max(1) as usize;
                 let rows = n.div_ceil(cols);
@@ -465,19 +574,53 @@ impl Renderer {
                         painter.text(Pos2::new(r.left() + r.height() * 0.95, r.center().y), Align2::LEFT_CENTER, strip_amp(item), fid.clone(), fcol);
                         resp
                     } else {
-                        ui.put(r, egui::RadioButton::new(sel, egui::RichText::new(strip_amp(item)).font(fid.clone())))
+                        let resp = ui.interact(r, ui.id().with(("radio", &c.name, k)), Sense::click());
+                        let row = r.shrink2(Vec2::new(0.0, 1.0));
+                        if sel {
+                            painter.rect_filled(row, 3.0, Color32::from_rgb(0xDC, 0xE7, 0xFB));
+                            painter.rect_filled(Rect::from_min_size(row.min, Vec2::new(3.0, row.height())), 1.5, ACCENT);
+                        } else if enabled && resp.hovered() {
+                            painter.rect_filled(row, 3.0, Color32::from_rgb(0xEE, 0xF3, 0xFC));
+                        }
+                        if enabled && resp.hovered() {
+                            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+                        }
+                        let dot = Pos2::new(row.left() + 12.0, row.center().y);
+                        painter.circle_stroke(dot, 5.0, Stroke::new(1.2, if sel { ACCENT } else { EDGE }));
+                        if sel {
+                            painter.circle_filled(dot, 2.6, ACCENT);
+                        }
+                        painter.text(Pos2::new(row.left() + 23.0, row.center().y), Align2::LEFT_CENTER, strip_amp(item), fid.clone(), fcol);
+                        // The number key that picks this row (see the hotkeys below).
+                        if go.is_some() && k < 9 {
+                            painter.text(row.right_center() - Vec2::new(6.0, 0.0), Align2::RIGHT_CENTER, format!("{}", k + 1), fid.clone(), Color32::from_rgb(0xA3, 0xAC, 0xB9));
+                        }
+                        resp
                     };
-                    if enabled && resp.clicked() && !sel {
+                    let key = self.hotkeys && go.is_some() && k < 9 && ui.input(|inp| inp.key_pressed(NUM_KEYS[k]));
+                    if enabled && (resp.clicked() || resp.double_clicked() || key) && !sel {
                         sel = true;
                         let _ = tx.send(Input::SetItemIndex { form: form.var.clone(), control: c.name.clone(), index: k as i32 });
                         send(Event::Click, &c.events.on_click);
                     }
+                    // Double-click an attack = pick it and press Go!.
+                    if enabled && resp.double_clicked() {
+                        fire = true;
+                    }
                     let _ = sel;
+                }
+                if self.hotkeys && ui.input(|inp| inp.key_pressed(egui::Key::Enter)) {
+                    fire = true;
+                }
+                if let (true, Some(g)) = (enabled && fire, go) {
+                    if form.controls[g].events.on_click.is_some() {
+                        let _ = tx.send(Input::Event { form: form.var.clone(), control: form.controls[g].name.clone(), event: Event::Click });
+                    }
                 }
             }
             Kind::GroupBox => self.group(&painter, rect, &c.caption, &fid, fcol),
             Kind::Panel => {
-                painter.rect_filled(rect, 0.0, self.col(c.color));
+                painter.rect_filled(rect, if self.skin == Skin::Classic { 3.0 } else { 0.0 }, self.col(c.color));
                 self.bevel(&painter, rect, false);
                 painter.text(rect.center(), Align2::CENTER_CENTER, strip_amp(&c.caption), fid, fcol);
             }
@@ -503,16 +646,22 @@ impl Renderer {
                 crate::ui::theme::hp_bar(&painter, rect, frac);
             }
             Kind::Gauge => {
-                painter.rect_filled(rect, 0.0, tcolor(c.back_color));
+                painter.rect_filled(rect, 3.0, tcolor(c.back_color));
                 let span = (c.max_value - c.min_value).max(1) as f32;
                 let frac = ((c.progress - c.min_value) as f32 / span).clamp(0.0, 1.0);
-                let mut fill = rect;
-                fill.set_width(rect.width() * frac);
-                painter.rect_filled(fill, 0.0, tcolor(c.fore_color));
-                sunken(&painter, rect);
+                let mut fill = rect.shrink(1.0);
+                fill.set_width((rect.width() - 2.0) * frac);
+                // The battle's HP bars turn amber, then red, as HP drops.
+                let fore = if form.var == "Form4" {
+                    if frac > 0.5 { Color32::from_rgb(0x4C, 0xC2, 0x7E) } else if frac > 0.2 { Color32::from_rgb(0xF2, 0xB4, 0x41) } else { Color32::from_rgb(0xEE, 0x60, 0x55) }
+                } else {
+                    tcolor(c.fore_color)
+                };
+                painter.rect_filled(rect, 3.0, Color32::from_rgb(0xDD, 0xE2, 0xE9));
+                painter.rect_filled(fill, 2.0, fore);
                 // TGauge ShowText: percentage, Delphi Trunc((Progress-Min)*100/(Max-Min)).
                 let pct = ((c.progress - c.min_value) as i64 * 100 / (c.max_value - c.min_value).max(1) as i64) as i32;
-                painter.text(rect.center(), Align2::CENTER_CENTER, format!("{pct}%"), fid, Color32::BLACK);
+                painter.text(rect.center(), Align2::CENTER_CENTER, format!("{pct}%"), FontId::new(fid.size.min(rect.height() - 1.0), fid.family.clone()), INK);
             }
             Kind::ComboBox if self.skin == Skin::Game => {
                 use crate::ui::theme as t;
@@ -597,15 +746,24 @@ impl Renderer {
                     }
                     let resp = ui.interact(r, ui.id().with(("lvi", &c.name, k)), Sense::click());
                     let selected = c.item_index == k as i32;
-                    if selected {
-                        ui.painter().rect_filled(Rect::from_min_size(r.min + Vec2::new(iw + 2.0, 0.0), Vec2::new(item_w - iw - 2.0, item_h)), 0.0, self.col(0xFF00_000D));
+                    let row = Rect::from_min_size(r.min + Vec2::new(iw + 2.0, 0.0), Vec2::new(item_w - iw - 2.0, item_h));
+                    if selected && self.skin == Skin::Classic {
+                        ui.painter().rect_filled(row, 3.0, Color32::from_rgb(0xDC, 0xE7, 0xFB));
+                        ui.painter().rect_filled(Rect::from_min_size(row.min, Vec2::new(3.0, row.height())), 1.5, ACCENT);
+                    } else if selected {
+                        ui.painter().rect_filled(row, 2.0, self.col(0xFF00_000D));
+                    } else if self.skin == Skin::Classic && resp.hovered() {
+                        ui.painter().rect_filled(row, 2.0, Color32::from_rgb(0xE3, 0xEC, 0xFB));
+                    }
+                    if resp.hovered() {
+                        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
                     }
                     if let Some(key) = &icons {
                         if let Some(t) = self.texture(ui.ctx(), assets, key, it.image_index) {
                             ui.painter().image(t.id(), Rect::from_min_size(r.min, Vec2::new(iw, ih)), Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
                         }
                     }
-                    let tcol = if selected { Color32::WHITE } else { self.col(c.font.color) };
+                    let tcol = if selected && self.skin == Skin::Classic { INK } else if selected { Color32::WHITE } else { self.col(c.font.color) };
                     ui.painter().text(r.left_center() + Vec2::new(iw + 4.0, 0.0), Align2::LEFT_CENTER, &it.caption, fid.clone(), tcol);
                     if resp.clicked() || resp.double_clicked() {
                         if !selected {
@@ -627,20 +785,34 @@ impl Renderer {
     fn show_dialog(&mut self, ctx: &egui::Context, id: u64, dlg: &Dialog, tx: &Sender<Input>) {
         match dlg {
             Dialog::Message { text, kind, buttons } => {
-                egui::Modal::new(egui::Id::new(("msgdlg", id))).show(ctx, |ui| {
-                    ui.set_max_width(420.0);
-                    ui.label(egui::RichText::new(kind.title()).strong());
-                    ui.add_space(6.0);
+                // Enter takes the affirmative button, Esc the negative one (or OK if that is all there is).
+                let enter = if buttons & MB_YES != 0 { Some(6) } else if buttons & MB_OK != 0 { Some(1) } else { None };
+                let esc = if buttons & MB_NO != 0 { Some(7) } else if buttons & MB_CANCEL != 0 { Some(2) } else { enter };
+                let key = ctx.input(|i| {
+                    if i.key_pressed(egui::Key::Enter) { enter } else if i.key_pressed(egui::Key::Escape) { esc } else { None }
+                });
+                if let Some(result) = key {
+                    let _ = tx.send(Input::Answer { id, answer: DialogAnswer::Button(result) });
+                }
+                egui::Modal::new(egui::Id::new(("msgdlg", id))).frame(egui::Frame::window(&ctx.style()).inner_margin(0.0)).show(ctx, |ui| {
+                    ui.set_width(420.0);
+                    let (bar, _) = ui.allocate_exact_size(Vec2::new(420.0, TITLE_HEIGHT), Sense::hover());
+                    let _ = title_bar(ui, bar, kind.title(), false, true, egui::CornerRadius { nw: 3, ne: 3, sw: 0, se: 0 });
+                    egui::Frame::new().inner_margin(egui::Margin::same(14)).show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        let icon = match kind {
-                            MsgDlgType::Warning => "⚠",
-                            MsgDlgType::Error => "⛔",
-                            MsgDlgType::Information => "ℹ",
-                            MsgDlgType::Confirmation => "?",
-                            MsgDlgType::Custom => "",
+                        let (glyph, col) = match kind {
+                            MsgDlgType::Warning => ("!", Color32::from_rgb(0xE0, 0x9A, 0x16)),
+                            MsgDlgType::Error => ("×", BALL_RED),
+                            MsgDlgType::Information => ("i", ACCENT),
+                            MsgDlgType::Confirmation => ("?", ACCENT),
+                            MsgDlgType::Custom => ("", ACCENT),
                         };
-                        ui.label(egui::RichText::new(icon).size(24.0));
-                        ui.label(egui::RichText::new(text).font(FontId::new(11.0, FontFamily::Name("mssans".into()))));
+                        if !glyph.is_empty() {
+                            let (r, _) = ui.allocate_exact_size(Vec2::splat(30.0), Sense::hover());
+                            ui.painter().circle_filled(r.center(), 14.0, col);
+                            ui.painter().text(r.center(), Align2::CENTER_CENTER, glyph, FontId::new(20.0, FontFamily::Name("arial".into())), Color32::WHITE);
+                        }
+                        ui.add(egui::Label::new(egui::RichText::new(text).font(FontId::new(12.0, FontFamily::Name("mssans".into())))).wrap());
                     });
                     ui.add_space(8.0);
                     ui.horizontal(|ui| {
@@ -651,6 +823,7 @@ impl Renderer {
                                 let _ = tx.send(Input::Answer { id, answer: DialogAnswer::Button(result) });
                             }
                         }
+                    });
                     });
                 });
             }
@@ -720,7 +893,7 @@ fn menu_item(ui: &mut egui::Ui, form: &Form, item: &MenuItem, tx: &Sender<Input>
     let visible: Vec<&MenuItem> = item.children.iter().filter(|m| m.visible).collect();
     if !visible.is_empty() {
         ui.add_enabled_ui(item.enabled && interactive, |ui| {
-            ui.menu_button(caption, |ui| {
+            ui.menu_button(egui::RichText::new(caption).font(menu_font()), |ui| {
                 for ch in visible {
                     menu_item(ui, form, ch, tx, interactive, false);
                 }
@@ -728,7 +901,7 @@ fn menu_item(ui: &mut egui::Ui, form: &Form, item: &MenuItem, tx: &Sender<Input>
         });
     } else {
         let label = if item.checked { format!("✔ {caption}") } else if top { caption } else { format!("   {caption}") };
-        if ui.add_enabled(item.enabled && interactive, egui::Button::new(label).frame(false)).clicked() {
+        if ui.add_enabled(item.enabled && interactive, egui::Button::new(egui::RichText::new(label).font(menu_font())).frame(false)).clicked() {
             if item.on_click.is_some() {
                 let _ = tx.send(Input::Menu { form: form.var.clone(), item: item.name.clone() });
             }
@@ -737,23 +910,88 @@ fn menu_item(ui: &mut egui::Ui, form: &Form, item: &MenuItem, tx: &Sender<Input>
     }
 }
 
-fn sunken(p: &egui::Painter, r: Rect) {
-    p.line_segment([r.left_top(), r.right_top()], Stroke::new(1.0, Color32::from_gray(128)));
-    p.line_segment([r.left_top(), r.left_bottom()], Stroke::new(1.0, Color32::from_gray(128)));
-    p.line_segment([r.left_bottom(), r.right_bottom()], Stroke::new(1.0, Color32::WHITE));
-    p.line_segment([r.right_top(), r.right_bottom()], Stroke::new(1.0, Color32::WHITE));
+const MUTED: Color32 = Color32::from_rgb(0x5D, 0x6B, 0x80);
+const NUM_KEYS: [egui::Key; 9] = [
+    egui::Key::Num1, egui::Key::Num2, egui::Key::Num3, egui::Key::Num4, egui::Key::Num5,
+    egui::Key::Num6, egui::Key::Num7, egui::Key::Num8, egui::Key::Num9,
+];
+
+fn menu_font() -> FontId {
+    FontId::new(12.0, FontFamily::Name("mssans".into()))
 }
 
+/// The visible, enabled "Go!" button sharing control `i`'s parent, if any.
+fn go_button(form: &Form, i: usize) -> Option<usize> {
+    let parent = form.controls[i].parent;
+    (0..form.controls.len()).find(|&j| {
+        let b = &form.controls[j];
+        b.kind == Kind::Button && b.parent == parent && strip_amp(&b.caption).trim() == "Go!" && b.enabled && form.showing(j) && ancestors_enabled(form, j)
+    })
+}
+
+const NAVY: Color32 = Color32::from_rgb(0x16, 0x23, 0x3B);
+const SLATE: Color32 = Color32::from_rgb(0x6B, 0x77, 0x8A);
+const BALL_RED: Color32 = Color32::from_rgb(0xE2, 0x3B, 0x47);
+
+/// A small Pokéball: red top, white bottom, dark band and button.
+fn pokeball(p: &egui::Painter, c: Pos2, r: f32, red: Color32, dark: Color32) {
+    p.circle_filled(c, r, Color32::from_rgb(0xF4, 0xF6, 0xFA));
+    let steps = 14;
+    let mut pts = vec![Pos2::new(c.x - r, c.y)];
+    for i in 0..=steps {
+        let a = std::f32::consts::PI * (1.0 + i as f32 / steps as f32);
+        pts.push(Pos2::new(c.x + r * a.cos(), c.y + r * a.sin()));
+    }
+    p.add(egui::Shape::convex_polygon(pts, red, Stroke::NONE));
+    p.line_segment([Pos2::new(c.x - r, c.y), Pos2::new(c.x + r, c.y)], Stroke::new(1.5, dark));
+    p.circle_stroke(c, r, Stroke::new(1.2, dark));
+    p.circle_filled(c, r * 0.38, Color32::from_rgb(0xF4, 0xF6, 0xFA));
+    p.circle_stroke(c, r * 0.38, Stroke::new(1.2, dark));
+}
+
+/// Compact title bar: Pokéball, left-aligned title, close button. The focused window is navy
+/// with a red edge; the others fall back to slate so the active window is obvious at a glance.
+/// Returns true if the close button was clicked.
+fn title_bar(ui: &mut egui::Ui, bar: Rect, title: &str, closable: bool, active: bool, radius: egui::CornerRadius) -> bool {
+    let p = ui.painter();
+    p.rect_filled(bar, radius, if active { NAVY } else { SLATE });
+    if active {
+        p.rect_filled(Rect::from_min_size(bar.left_bottom() - Vec2::new(0.0, 2.0), Vec2::new(bar.width(), 2.0)), 0.0, BALL_RED);
+    }
+    pokeball(p, bar.left_center() + Vec2::new(13.0, -1.0), 6.0, if active { BALL_RED } else { Color32::from_rgb(0xC4, 0xCB, 0xD6) }, if active { NAVY } else { SLATE });
+    let font = FontId::new(13.0, FontFamily::Name("mssans".into()));
+    p.text(bar.left_center() + Vec2::new(27.0, -1.0), Align2::LEFT_CENTER, title, font, Color32::WHITE);
+    if !closable {
+        return false;
+    }
+    let x = Rect::from_min_size(bar.right_top() + Vec2::new(-TITLE_HEIGHT, 0.0), Vec2::splat(TITLE_HEIGHT));
+    let resp = ui.interact(x, ui.id().with(("close", title)), Sense::click());
+    let p = ui.painter();
+    if resp.hovered() {
+        p.rect_filled(x.shrink(2.0), 3.0, BALL_RED);
+        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    }
+    let c = x.center() - Vec2::new(0.0, 1.0);
+    let d = 4.0;
+    let st = Stroke::new(1.6, Color32::WHITE);
+    p.line_segment([c + Vec2::new(-d, -d), c + Vec2::new(d, d)], st);
+    p.line_segment([c + Vec2::new(-d, d), c + Vec2::new(d, -d)], st);
+    resp.clicked()
+}
+
+/// Flat inset field: hairline edge, 3px corners.
+fn sunken(p: &egui::Painter, r: Rect) {
+    p.rect_stroke(r, 3.0, Stroke::new(1.0, EDGE), StrokeKind::Inside);
+}
+
+/// Flat raised panel: a slightly lighter hairline than the inset field.
 fn raised(p: &egui::Painter, r: Rect) {
-    p.line_segment([r.left_top(), r.right_top()], Stroke::new(1.0, Color32::WHITE));
-    p.line_segment([r.left_top(), r.left_bottom()], Stroke::new(1.0, Color32::WHITE));
-    p.line_segment([r.left_bottom(), r.right_bottom()], Stroke::new(1.0, Color32::from_gray(128)));
-    p.line_segment([r.right_top(), r.right_bottom()], Stroke::new(1.0, Color32::from_gray(128)));
+    p.rect_stroke(r, 3.0, Stroke::new(1.0, Color32::from_rgb(0xC9, 0xD0, 0xDA)), StrokeKind::Inside);
 }
 
 fn group_frame(p: &egui::Painter, rect: Rect, caption: &str, fid: &FontId, col: Color32) {
     let frame = Rect::from_min_max(rect.min + Vec2::new(0.0, 6.0), rect.max);
-    p.rect_stroke(frame, 2.0, Stroke::new(1.0, Color32::from_gray(150)), StrokeKind::Inside);
+    p.rect_stroke(frame, 4.0, Stroke::new(1.0, EDGE), StrokeKind::Inside);
     if !caption.is_empty() {
         let galley = p.layout_no_wrap(strip_amp(caption), fid.clone(), col);
         let bg = Rect::from_min_size(rect.min + Vec2::new(6.0, 0.0), galley.size() + Vec2::new(4.0, 0.0));
