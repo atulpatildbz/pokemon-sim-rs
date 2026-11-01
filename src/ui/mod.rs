@@ -908,9 +908,17 @@ impl GameUi {
             }
             // Window chips share the space up to the Options button; scroll sideways if crowded.
             let room = Rect::from_min_max(Pos2::new(x, dock.top()), Pos2::new(dock.right() - 66.0, dock.bottom()));
-            let labels: Vec<(String, String)> = sheets.iter().map(|f| (short_caption(&f.caption), f.var.clone())).collect();
-            let natural: Vec<f32> = labels.iter().map(|(l, _)| (l.chars().count() as f32 * 11.0 + 34.0).clamp(72.0, 190.0)).collect();
-            let total: f32 = natural.iter().sum::<f32>() + 8.0 * labels.len() as f32;
+            let mut labels: Vec<(String, String)> = sheets.iter().map(|f| (short_caption(&f.caption), f.var.clone())).collect();
+            let mut natural: Vec<f32> = labels.iter().map(|(l, _)| (l.chars().count() as f32 * 11.0 + 34.0).clamp(72.0, 190.0)).collect();
+            let mut total: f32 = natural.iter().sum::<f32>() + 8.0 * labels.len() as f32;
+            if total > room.width() {
+                // Phones: short labels before squeezing or scrolling.
+                for (l, _) in &mut labels {
+                    *l = compact_caption(l);
+                }
+                natural = labels.iter().map(|(l, _)| (l.chars().count() as f32 * 11.0 + 20.0).clamp(52.0, 190.0)).collect();
+                total = natural.iter().sum::<f32>() + 8.0 * labels.len() as f32;
+            }
             let squeeze = if total > room.width() { (room.width() / total).max(0.62) } else { 1.0 };
             ui.scope_builder(egui::UiBuilder::new().max_rect(room), |ui| {
                 egui::ScrollArea::horizontal().id_salt("dock_chips").scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden).show(ui, |ui| {
@@ -1222,6 +1230,15 @@ fn sheet_title(c: &str) -> String {
 }
 
 /// Window captions are long ("POKéMON Simulator V4.5 - Statistics"); keep the meaningful part.
+/// A dock chip label for narrow screens: a known abbreviation or the first word.
+fn compact_caption(c: &str) -> String {
+    match c {
+        "Statistics" => "Stats".into(),
+        "POKéDEX" | "Pokédex" => "Dex".into(),
+        _ => c.split_whitespace().next().unwrap_or(c).to_string(),
+    }
+}
+
 fn short_caption(c: &str) -> String {
     let c = strip_amp(c);
     let c = c.rsplit(" - ").next().unwrap_or(&c).trim().to_string();

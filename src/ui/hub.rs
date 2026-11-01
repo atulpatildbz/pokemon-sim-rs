@@ -110,7 +110,7 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
     t::text(p, inner.left_top() + Vec2::new(16.0, 32.0), Align2::LEFT_TOP, if name.is_empty() { "-" } else { &name }, t::bold(30.0), t::pal().ink);
     let stats = [
         ("MONEY", format!("¥{}", label_of(f5, "MoneyLbl"))),
-        ("WINS", format!("{}/{}", label_of(f5, "WinsLbl"), label_of(f5, "FightsLbl"))),
+        ("WINS", super::screens::wins_of(label_of(f5, "WinsLbl"), label_of(f5, "LossesLbl"))),
         ("CAUGHT", label_of(f5, "CapturesLbl")),
         ("DEX", format!("{}/386", label_of(f5, "OwnedPKMNLbl"))),
     ];
@@ -188,7 +188,7 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
         p.rect_filled(badge, CornerRadius::same(10), if enabled { badge_col } else { t::pal().grey });
         glyph(p, badge.center(), badge.width() * 0.3, tile.glyph, Color32::WHITE);
         let ink = if enabled { t::pal().ink } else { t::pal().grey };
-        let size = if tw < 190.0 { 15.0 } else { 19.0 };
+        let size = super::screens::fit(p, tile.label, if tw < 190.0 { 15.0 } else { 19.0 }, face.right() - badge.right() - 18.0);
         t::text(p, Pos2::new(badge.right() + 10.0, face.center().y), Align2::LEFT_CENTER, tile.label, t::bold(size), ink);
         if item.checked {
             t::icon(p, face.right_top() + Vec2::new(-14.0, 14.0), 14.0, t::Icon::Check, tile.color);

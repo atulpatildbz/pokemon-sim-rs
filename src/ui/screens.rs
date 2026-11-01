@@ -67,6 +67,14 @@ fn search_field(ui: &mut egui::Ui, text: &mut String, hint: &str) -> String {
 }
 
 /// Shrink `s` to fit `room` points wide, from `size` down.
+/// "wins/battles" for the trainer card. The program's Fights counter counts a loss twice
+/// (once at send-out, once when the POKéMON faints), so use wins + losses like Win %.
+pub(crate) fn wins_of(wins: impl AsRef<str>, losses: impl AsRef<str>) -> String {
+    let (w, l) = (wins.as_ref().trim(), losses.as_ref().trim());
+    let total = w.parse::<u64>().unwrap_or(0) + l.parse::<u64>().unwrap_or(0);
+    format!("{w}/{total}")
+}
+
 pub(crate) fn fit(p: &egui::Painter, s: &str, mut size: f32, room: f32) -> f32 {
     while size > 10.0 && p.layout_no_wrap(s.to_string(), t::bold(size), Color32::WHITE).size().x > room {
         size -= 1.0;
@@ -90,7 +98,7 @@ pub fn pc(ui: &mut egui::Ui, snap: &Snapshot, renderer: &mut Renderer, assets: &
         // Stats in one strip.
         let stats = [
             ("MONEY", format!("¥{}", cap(f5, "MoneyLbl"))),
-            ("WINS", format!("{}/{}", cap(f5, "WinsLbl"), cap(f5, "FightsLbl"))),
+            ("WINS", wins_of(cap(f5, "WinsLbl"), cap(f5, "LossesLbl"))),
             ("WIN %", cap(f5, "Percent")),
             ("CAUGHT", cap(f5, "CapturesLbl")),
             ("DEX", format!("{}/386", cap(f5, "OwnedPKMNLbl"))),
