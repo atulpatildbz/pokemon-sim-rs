@@ -27,11 +27,6 @@ fn select(tx: &Sender<Input>, form: &str, control: &str, index: i32) {
     let _ = tx.send(Input::SetItemIndex { form: form.into(), control: control.into(), index });
 }
 
-fn heading(ui: &mut egui::Ui, text: &str) {
-    let (r, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 28.0), Sense::hover());
-    t::text(ui.painter(), r.left_bottom() + Vec2::new(2.0, -4.0), Align2::LEFT_BOTTOM, text, t::bold(18.0), t::pal().ink);
-}
-
 fn type_pill(p: &egui::Painter, at: Pos2, ty: &str, size: f32) -> f32 {
     let g = p.layout_no_wrap(ty.to_uppercase(), t::bold(size), Color32::WHITE);
     let r = Rect::from_min_size(at, g.size() + Vec2::new(10.0, 4.0));
@@ -665,56 +660,67 @@ impl GameCorner {
             ui.ctx().request_repaint();
         }
 
-        // Money and the lucky-number reel.
-        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 120.0), Sense::hover());
+        let gold = Color32::from_rgb(0xF8, 0xD0, 0x30);
+        let small = |ui: &mut egui::Ui, s: &str| {
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 20.0), Sense::hover());
+            t::text(ui.painter(), r.left_center() + Vec2::new(2.0, 0.0), Align2::LEFT_CENTER, s, t::bold(14.0), t::pal().ink);
+        };
+
+        // One strip: money, the result of the last draw and the lucky-number reel.
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 64.0), Sense::hover());
         let p = ui.painter().clone();
         p.rect_filled(r, 12.0, Color32::from_rgb(0x30, 0x28, 0x48));
-        t::text(&p, r.left_top() + Vec2::new(14.0, 12.0), Align2::LEFT_TOP, "YOUR MONEY", t::bold(13.0), Color32::from_rgb(0xF8, 0xD0, 0x30));
-        t::text(&p, r.left_top() + Vec2::new(14.0, 30.0), Align2::LEFT_TOP, &format!("¥{money}"), t::bold(24.0), t::ON_ACCENT);
-        let reel = Rect::from_center_size(r.right_center() + Vec2::new(-70.0, 9.0), Vec2::new(86.0, 86.0));
-        p.rect_filled(reel, 10.0, t::pal().paper);
-        p.rect_stroke(reel, 10.0, egui::Stroke::new(3.0, Color32::from_rgb(0xF8, 0xD0, 0x30)), egui::StrokeKind::Outside);
+        t::text(&p, r.left_top() + Vec2::new(12.0, 10.0), Align2::LEFT_TOP, "YOUR MONEY", t::bold(11.0), gold);
+        let money_s = format!("¥{money}");
+        t::text(&p, r.left_top() + Vec2::new(12.0, 27.0), Align2::LEFT_TOP, &money_s, t::bold(fit(&p, &money_s, 22.0, width * 0.42)), t::ON_ACCENT);
+        let reel = Rect::from_min_size(Pos2::new(r.right() - 62.0, r.top() + 18.0), Vec2::new(50.0, 40.0));
+        p.rect_filled(reel, 8.0, t::pal().paper);
+        p.rect_stroke(reel, 8.0, egui::Stroke::new(2.5, gold), egui::StrokeKind::Outside);
+        t::text(&p, Pos2::new(reel.center().x, r.top() + 4.0), Align2::CENTER_TOP, "LUCKY", t::bold(10.0), gold);
         let lucky = fb.c("RadioGroup3").item_index;
         let picked = fb.c("RadioGroup2").item_index;
         let shown = if spinning { ((now * 30.0) as i32).rem_euclid(10) } else { lucky };
         let digit = if shown >= 0 { shown.to_string() } else { "?".into() };
-        p.text(reel.center(), Align2::CENTER_CENTER, digit, t::title(44.0), if !spinning && lucky >= 0 && lucky == picked { Color32::from_rgb(0x40, 0xA0, 0x50) } else { t::pal().ink });
-        t::text(&p, Pos2::new(reel.center().x, reel.top() - 8.0), Align2::CENTER_BOTTOM, "LUCKY NUMBER", t::bold(11.0), Color32::from_rgb(0xF8, 0xD0, 0x30));
+        p.text(reel.center(), Align2::CENTER_CENTER, digit, t::title(30.0), if !spinning && lucky >= 0 && lucky == picked { Color32::from_rgb(0x40, 0xA0, 0x50) } else { t::pal().ink });
         if !spinning && lucky >= 0 && picked >= 0 && self.spin_at.is_some() {
             let (txt, col) = if lucky == picked { ("WIN!", Color32::from_rgb(0x88, 0xE0, 0x98)) } else { ("No luck…", Color32::from_rgb(0xF0, 0x90, 0x88)) };
-            t::text(&p, r.left_bottom() + Vec2::new(14.0, -14.0), Align2::LEFT_BOTTOM, txt, t::bold(20.0), col);
+            t::text(&p, Pos2::new(reel.left() - 12.0, r.center().y), Align2::RIGHT_CENTER, txt, t::bold(fit(&p, txt, 18.0, width * 0.3)), col);
         }
         ui.add_space(8.0);
 
-        // Bet (SpinEdit1, capped at your money by the program).
+        // Bet (SpinEdit1, capped at your money by the program): amount and steps in one row.
         let spin = fb.c("SpinEdit1");
         let bet: i32 = spin.text.trim().parse().unwrap_or(spin.value);
         let max = spin.max_value.max(0);
-        heading(ui, "Bet");
-        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 44.0), Sense::hover());
         let set = |v: i32| {
             let _ = tx.send(Input::SetValue { form: "FormB".into(), control: "SpinEdit1".into(), value: v.clamp(0, max) });
         };
+        let lead = (width * 0.26).clamp(80.0, 130.0);
+        let bet_s = format!("¥{bet}");
+        t::text(ui.painter(), r.left_top() + Vec2::new(2.0, 2.0), Align2::LEFT_TOP, "BET", t::bold(11.0), t::pal().grey);
+        t::text(ui.painter(), r.left_bottom() + Vec2::new(2.0, -4.0), Align2::LEFT_BOTTOM, &bet_s, t::bold(fit(ui.painter(), &bet_s, 20.0, lead - 8.0)), t::pal().ink);
         let steps = [("-1000", -1000), ("-100", -100), ("+100", 100), ("+1000", 1000)];
-        let bw = (width - 130.0 - 8.0 * 4.0) / 4.0;
-        t::text(ui.painter(), r.left_center() + Vec2::new(4.0, -2.0), Align2::LEFT_CENTER, &format!("¥{bet}"), t::bold(24.0), t::pal().ink);
+        let bw = (width - lead - 6.0 * 3.0) / 4.0;
         for (k, (label, d)) in steps.iter().enumerate() {
-            let b = Rect::from_min_size(r.min + Vec2::new(130.0 + k as f32 * (bw + 8.0), 0.0), Vec2::new(bw, 46.0));
+            let b = Rect::from_min_size(r.min + Vec2::new(lead + k as f32 * (bw + 6.0), 2.0), Vec2::new(bw, 40.0));
             if t::button(ui, b, label, t::ButtonKind::Plain, free).clicked() {
                 set(bet + d);
             }
         }
-        ui.add_space(4.0);
+        ui.add_space(6.0);
 
-        // Prize (RadioGroup1).
-        heading(ui, "Play for");
+        // Prize (RadioGroup1): compact two-line chips.
+        small(ui, "Play for");
         let prizes = &fb.c("RadioGroup1");
-        let half = (width - 8.0) / 2.0;
-        for row in prizes.items.chunks(2).enumerate() {
-            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
-            for (k, item) in row.1.iter().enumerate() {
-                let idx = (row.0 * 2 + k) as i32;
-                let b = Rect::from_min_size(r.min + Vec2::new(k as f32 * (half + 8.0), 0.0), Vec2::new(half, 46.0));
+        let cols = if width >= 300.0 { 3 } else { 2 };
+        let gap = 6.0;
+        let cw = (width - gap * (cols as f32 - 1.0)) / cols as f32;
+        for (ri, row) in prizes.items.chunks(cols).enumerate() {
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 46.0), Sense::hover());
+            for (k, item) in row.iter().enumerate() {
+                let idx = (ri * cols + k) as i32;
+                let b = Rect::from_min_size(r.min + Vec2::new(k as f32 * (cw + gap), 0.0), Vec2::new(cw, 42.0));
                 let sel = prizes.item_index == idx;
                 let (name, odds) = match strip_amp(item).split_once(" (") {
                     Some((n, o)) => (n.to_string(), o.trim_end_matches(')').to_string()),
@@ -722,8 +728,10 @@ impl GameCorner {
                 };
                 let resp = t::button(ui, b, "", if sel { t::ButtonKind::Primary } else { t::ButtonKind::Plain }, free);
                 let ink = if sel { t::ON_ACCENT } else { t::pal().ink };
-                t::text(ui.painter(), b.left_center() + Vec2::new(12.0, -9.0), Align2::LEFT_CENTER, &name, t::bold(15.0), ink);
-                t::text(ui.painter(), b.left_center() + Vec2::new(12.0, 8.0), Align2::LEFT_CENTER, &odds, t::body(13.0), ink);
+                let p = ui.painter();
+                let room = cw - 16.0;
+                t::text(p, b.left_center() + Vec2::new(8.0, -8.0), Align2::LEFT_CENTER, &name, t::bold(fit(p, &name, 13.0, room)), ink);
+                p.text(b.left_center() + Vec2::new(8.0, 9.0), Align2::LEFT_CENTER, &odds, t::body(fit(p, &odds, 12.0, room)), ink);
                 if resp.clicked() {
                     select(tx, "FormB", "RadioGroup1", idx);
                 }
@@ -731,30 +739,24 @@ impl GameCorner {
         }
         ui.add_space(4.0);
 
-        // Number pad (RadioGroup2).
-        heading(ui, "Pick a number");
-        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 2.0 * 54.0), Sense::hover());
-        let kw = (width - 4.0 * 8.0) / 5.0;
-        for n in 0..10 {
-            let b = Rect::from_min_size(r.min + Vec2::new((n % 5) as f32 * (kw + 8.0), (n / 5) as f32 * 54.0), Vec2::new(kw, 48.0));
+        // Number pad (RadioGroup2): a tap picks the number and draws.
+        small(ui, "Tap a number to draw");
+        let per_row = if width >= 480.0 { 10 } else { 5 };
+        let rows = 10 / per_row;
+        let row_h = 50.0;
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, rows as f32 * row_h), Sense::hover());
+        let kw = (width - (per_row as f32 - 1.0) * 6.0) / per_row as f32;
+        for n in 0..10usize {
+            let b = Rect::from_min_size(r.min + Vec2::new((n % per_row) as f32 * (kw + 6.0), (n / per_row) as f32 * row_h), Vec2::new(kw, row_h - 6.0));
             let sel = picked == n as i32;
-            if t::button(ui, b, &n.to_string(), if sel { t::ButtonKind::Primary } else { t::ButtonKind::Plain }, free).clicked() {
+            if t::button(ui, b, &n.to_string(), if sel { t::ButtonKind::Primary } else { t::ButtonKind::Danger }, free).clicked() {
                 select(tx, "FormB", "RadioGroup2", n as i32);
+                // The program draws instantly; the reel spins only if a draw can happen.
+                if bet >= 0 && prizes.item_index >= 0 {
+                    self.spin_at = Some(now);
+                }
+                send(tx, "FormB", "Button1", Event::Click);
             }
-        }
-        ui.add_space(8.0);
-
-        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 56.0), Sense::hover());
-        let half = (width - 8.0) / 2.0;
-        if t::button(ui, Rect::from_min_size(r.min, Vec2::new(half, 52.0)), "CLOSE", t::ButtonKind::Plain, free).clicked() {
-            send(tx, "FormB", "Button2", Event::Click);
-        }
-        if t::button(ui, Rect::from_min_size(r.min + Vec2::new(half + 8.0, 0.0), Vec2::new(half, 52.0)), "DRAW!", t::ButtonKind::Danger, free).clicked() {
-            // The program draws instantly; the reel spins only if a draw can happen.
-            if bet >= 0 && prizes.item_index >= 0 && picked >= 0 {
-                self.spin_at = Some(now);
-            }
-            send(tx, "FormB", "Button1", Event::Click);
         }
     }
 }

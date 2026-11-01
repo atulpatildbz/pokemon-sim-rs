@@ -114,6 +114,9 @@ pub struct GameUi {
     last_fight: Option<String>,
     /// Fire this menu item once the battle has ended and the hub is back.
     pending_again: Option<String>,
+    /// Evolution Mode was used from the PC: the program ends the mode after every attempt,
+    /// so turn it back on while the PC stays open (the player taps EVOLVE again for them).
+    keep_evolve: bool,
     pc_search: String,
     wild: screens::WildPick,
     /// The save file of the game being played (a slot), for Export.
@@ -159,6 +162,7 @@ impl GameUi {
             auto_answered: 0,
             last_fight: None,
             pending_again: None,
+            keep_evolve: false,
             pc_search: String::new(),
             wild: screens::WildPick::default(),
             current_save: None,
@@ -396,6 +400,16 @@ impl GameUi {
             }
         }
 
+        // Evolution Mode stays on while the PC is open (see `keep_evolve`).
+        if self.keep_evolve {
+            if self.sheet.as_deref() != Some("Form5") || self.scene != "Form4" {
+                self.keep_evolve = false;
+            } else if !evolve_on(snap) && snap.dialog.is_none() && !screens::evolve_choice_active(snap) {
+                let _ = tx.send(Input::Menu { form: "Form4".into(), item: "Evolve1".into() });
+                self.keep_evolve = false;
+            }
+        }
+
         // Layout.
         let open = ctx.animate_bool_with_time(Id::new("sheet_open"), self.sheet.is_some(), anim(0.22));
         let open = ease_out(open);
@@ -598,7 +612,10 @@ impl GameUi {
                                     self.battle.note_pick(slot, species);
                                     self.expect = Some((Expect::SendOut, now));
                                 }
-                                Some(screens::PcTap::Mode) => self.expect = Some((Expect::Mode, now)),
+                                Some(screens::PcTap::Mode) => {
+                                    self.expect = Some((Expect::Mode, now));
+                                    self.keep_evolve = evolve_on(snap);
+                                }
                                 None => {}
                             },
                             "Form8" => self.dex.show(ui, snap, &mut self.renderer, assets, tx),
@@ -720,7 +737,9 @@ impl GameUi {
         let ok_only = *buttons == MB_OK || *buttons == 0;
         // Branched evolution: the "EVOLVE INTO…" screen that follows asks the same thing.
         let branch = text.starts_with("Please select what you would like to evolve your ");
-        let answer = if ok_only && (INSTRUCTIONS.contains(&text.as_str()) || branch) {
+        // Game Corner win: the prize message follows straight after.
+        let corner_win = text == "Congratulations! You won! And your prize is...";
+        let answer = if ok_only && (INSTRUCTIONS.contains(&text.as_str()) || branch || corner_win) {
             Some(1)
         } else if ok_only && expect.is_some() && text.starts_with("# ") && text.contains(", XP to next level:") {
             Some(1)
@@ -1230,6 +1249,11 @@ fn sheet_title(c: &str) -> String {
 }
 
 /// Window captions are long ("POKéMON Simulator V4.5 - Statistics"); keep the meaningful part.
+/// Whether the original's Evolution Mode is on (Action › Evolve is checked).
+fn evolve_on(snap: &Snapshot) -> bool {
+    snap.forms.iter().find(|f| f.var == "Form4").and_then(|f| hub::find_item(f, &["Action1", "Evolve1"])).is_some_and(|(m, _)| m.checked)
+}
+
 /// A dock chip label for narrow screens: a known abbreviation or the first word.
 fn compact_caption(c: &str) -> String {
     match c {
