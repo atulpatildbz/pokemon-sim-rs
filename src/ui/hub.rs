@@ -15,6 +15,8 @@ pub enum Request {
     OpenSheet(String),
     /// Open the opponent-card sheet for this menu path (item names from the top level).
     OpenCards(Vec<String>),
+    /// A menu item was fired (a fight started from a tile).
+    Fired(String),
 }
 
 /// Form4 shows nothing of its own (no battle, starter list, wild search or evolution choice).
@@ -197,7 +199,15 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
                     req = Some(Request::OpenSheet("Form5".into()));
                 }
             } else {
-                req = Some(Request::OpenCards(tile.path.iter().map(|s| s.to_string()).collect()));
+                // A group with a single choice (WILD before Mewtwo is unlocked) fires it directly.
+                let open: Vec<&MenuItem> = item.children.iter().filter(|c| c.visible && c.enabled && c.on_click.is_some()).collect();
+                let locked = item.children.iter().filter(|c| c.visible && !c.enabled).count();
+                if matches!(tile.glyph, Glyph::Wild) && open.len() == 1 && locked + 1 == item.children.iter().filter(|c| c.visible).count() {
+                    let _ = tx.send(Input::Menu { form: "Form4".into(), item: open[0].name.clone() });
+                    req = Some(Request::Fired(open[0].name.clone()));
+                } else {
+                    req = Some(Request::OpenCards(tile.path.iter().map(|s| s.to_string()).collect()));
+                }
             }
         }
     }
@@ -205,65 +215,102 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
 }
 
 /// Opponent cards for a menu group: nested groups become headed sections, leaves become cards.
-pub fn cards(ui: &mut egui::Ui, form: &Form, path: &[String], tx: &Sender<Input>, free: bool) -> bool {
-    let Some((root, root_ok)) = find_item(form, path) else { return false };
-    let width = ui.available_width();
-    let mut fired = false;
-    fn walk<'a>(m: &'a MenuItem, trail: Vec<String>, ok: bool, out: &mut Vec<(Vec<String>, Vec<(&'a MenuItem, bool)>)>) {
+/// Each gym's next leader (and the last opponent) come first under "Up next"; locked groups
+/// shrink to a single line. Returns the item fired.
+pub fn cards(ui: &mut egui::Ui, form: &Form, path: &[String], tx: &Sender<Input>, free: bool, last: Option<&str>) -> Option<String> {
+    let (root, root_ok) = find_item(form, path)?;
+    // Clear of the scroll bar.
+    let width = ui.available_width() - 8.0;
+    let mut fired = None;
+    struct Section<'a> {
+        title: String,
+        leaves: Vec<(&'a MenuItem, bool)>,
+        locked: bool,
+    }
+    fn walk<'a>(m: &'a MenuItem, trail: Vec<String>, ok: bool, out: &mut Vec<Section<'a>>) {
         let leaves: Vec<(&MenuItem, bool)> = m.children.iter().filter(|c| c.visible && c.children.is_empty() && strip_amp(&c.caption) != "-").map(|c| (c, ok && c.enabled)).collect();
         if !leaves.is_empty() {
-            out.push((trail.clone(), leaves));
+            out.push(Section { title: trail.join(" · "), leaves, locked: false });
         }
         for c in m.children.iter().filter(|c| c.visible && !c.children.is_empty()) {
             let mut t2 = trail.clone();
             t2.push(strip_amp(&c.caption));
-            walk(c, t2, ok && c.enabled, out);
+            if ok && !c.enabled {
+                out.push(Section { title: t2.join(" · "), leaves: Vec::new(), locked: true });
+            } else {
+                walk(c, t2, ok && c.enabled, out);
+            }
         }
     }
     let mut sections = Vec::new();
     walk(root, Vec::new(), root_ok, &mut sections);
     // The group's own leaves (Elite Four, Ash, Me…) come after the tiered groups.
-    if sections.first().is_some_and(|(trail, _)| trail.is_empty()) && sections.len() > 1 {
-        let own = sections.remove(0);
-        sections.push((vec!["Special".to_string()], own.1));
+    if sections.first().is_some_and(|s| s.title.is_empty()) && sections.len() > 1 {
+        let mut own = sections.remove(0);
+        own.title = "Special".into();
+        sections.push(own);
     }
-    let cols = if width > 520.0 { 3 } else { 2 };
-    let gap = 8.0;
+    if sections.first().is_some_and(|s| s.title.is_empty()) {
+        sections[0].title = strip_amp(&root.caption);
+    }
+    // Up next: the last opponent, then the newest unlocked leader of each gym.
+    let mut next: Vec<(&MenuItem, bool)> = Vec::new();
+    if let Some((m, ok)) = last.and_then(|l| sections.iter().flat_map(|s| s.leaves.iter()).find(|(m, _)| m.name == l)) {
+        next.push((m, *ok));
+    }
+    for s in sections.iter().filter(|s| s.title.contains("Gym")) {
+        if let Some(&(m, ok)) = s.leaves.iter().rev().find(|(_, ok)| *ok) {
+            if !next.iter().any(|(n, _)| n.name == m.name) {
+                next.push((m, ok));
+            }
+        }
+    }
+    if !next.is_empty() && sections.iter().map(|s| s.leaves.len()).sum::<usize>() > 6 {
+        sections.insert(0, Section { title: "Up next".into(), leaves: next, locked: false });
+    }
+
+    let cols = if width > 520.0 { 4 } else if width > 330.0 { 3 } else { 2 };
+    let gap = 6.0;
     let cw = (width - gap * (cols as f32 - 1.0)) / cols as f32;
     egui::ScrollArea::vertical().id_salt(("cards", path.join("/"))).show(ui, |ui| {
-        for (trail, leaves) in &sections {
-            let title = if trail.is_empty() { strip_amp(&root.caption) } else { trail.join(" · ") };
-            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 30.0), Sense::hover());
-            t::text(ui.painter(), r.left_bottom() + Vec2::new(2.0, -6.0), Align2::LEFT_BOTTOM, &title, t::bold(18.0), t::pal().ink);
-            for row in leaves.chunks(cols) {
-                let (r, _) = ui.allocate_exact_size(Vec2::new(width, 62.0), Sense::hover());
+        for (si, sec) in sections.iter().enumerate() {
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 28.0), Sense::hover());
+            let p = ui.painter();
+            let ink = if sec.locked { t::pal().grey } else { t::pal().ink };
+            let end = t::text(p, r.left_bottom() + Vec2::new(2.0, -6.0), Align2::LEFT_BOTTOM, &sec.title, t::bold(17.0), ink);
+            if sec.locked {
+                t::icon(p, Pos2::new(end.right() + 14.0, end.center().y), 12.0, t::Icon::Lock, t::pal().grey);
+                continue;
+            }
+            for row in sec.leaves.chunks(cols) {
+                let (r, _) = ui.allocate_exact_size(Vec2::new(width, 52.0), Sense::hover());
                 for (k, (m, ok)) in row.iter().enumerate() {
-                    let br = Rect::from_min_size(r.min + Vec2::new(k as f32 * (cw + gap), 0.0), Vec2::new(cw, 56.0));
+                    let br = Rect::from_min_size(r.min + Vec2::new(k as f32 * (cw + gap), 0.0), Vec2::new(cw, 48.0));
                     let enabled = *ok && free;
-                    let resp = t::button(ui, br, "", t::ButtonKind::Plain, enabled);
+                    let resp = ui.push_id(si, |ui| t::button(ui, br, "", t::ButtonKind::Plain, enabled)).inner;
                     let p = ui.painter();
                     let name = strip_amp(&m.caption);
-                    let face_c = br.left_center() + Vec2::new(26.0, -2.0);
+                    let face_c = br.left_center() + Vec2::new(20.0, -2.0);
                     let hue = name.bytes().fold(7u32, |h, b| h.wrapping_mul(31).wrapping_add(b as u32));
                     let col = if enabled { Color32::from_rgb(120 + (hue % 100) as u8, 90 + ((hue / 100) % 100) as u8, 110 + ((hue / 10000) % 110) as u8) } else { t::pal().grey };
-                    p.circle_filled(face_c, 15.0, t::pal().frame);
-                    p.circle_filled(face_c, 13.0, col);
+                    p.circle_filled(face_c, 13.0, t::pal().frame);
+                    p.circle_filled(face_c, 11.0, col);
                     let initial: String = name.chars().filter(|c| c.is_alphanumeric()).take(1).collect();
-                    p.text(face_c, Align2::CENTER_CENTER, initial, t::bold(16.0), Color32::WHITE);
+                    p.text(face_c, Align2::CENTER_CENTER, initial, t::bold(14.0), Color32::WHITE);
                     let ink = if enabled { t::pal().ink } else { t::pal().grey };
                     // Shrink long names to fit the card.
-                    let room = br.right() - (face_c.x + 24.0) - 10.0;
-                    let mut size = 17.0;
+                    let room = br.right() - (face_c.x + 18.0) - 6.0;
+                    let mut size = 16.0;
                     while size > 10.0 && p.layout_no_wrap(name.clone(), t::bold(size), ink).size().x > room {
                         size -= 1.0;
                     }
-                    t::text(p, Pos2::new(face_c.x + 24.0, face_c.y), Align2::LEFT_CENTER, &name, t::bold(size), ink);
+                    t::text(p, Pos2::new(face_c.x + 18.0, face_c.y), Align2::LEFT_CENTER, &name, t::bold(size), ink);
                     if !m.enabled {
-                        t::icon(p, br.right_top() + Vec2::new(-14.0, 14.0), 12.0, t::Icon::Lock, t::pal().grey);
+                        t::icon(p, br.right_top() + Vec2::new(-12.0, 12.0), 10.0, t::Icon::Lock, t::pal().grey);
                     }
                     if resp.clicked() && m.on_click.is_some() {
                         let _ = tx.send(Input::Menu { form: form.var.clone(), item: m.name.clone() });
-                        fired = true;
+                        fired = Some(m.name.clone());
                     }
                 }
             }

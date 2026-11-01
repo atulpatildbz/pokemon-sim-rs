@@ -19,7 +19,6 @@ pub enum Request {
 
 #[derive(Default)]
 pub struct Title {
-    started: bool,
     /// Cached slot summaries and when they were read.
     cache: Option<(f64, [Option<Summary>; slots::COUNT])>,
     /// Slot waiting for a second tap to confirm overwriting it.
@@ -39,11 +38,6 @@ impl Title {
             self.cache = Some((now, std::array::from_fn(slots::summary)));
         }
         self.cache.clone().unwrap().1
-    }
-
-    /// Skip "TAP TO START".
-    pub fn start(&mut self) {
-        self.started = true;
     }
 
     pub fn refresh(&mut self) {
@@ -85,18 +79,6 @@ impl Title {
         p.text(Pos2::new(cx, logo_y + bob + big * 0.95), Align2::CENTER_CENTER, "SIMULATOR", t::title(big * 0.42), t::ON_ACCENT);
         p.text(Pos2::new(cx, logo_y + bob + big * 1.55), Align2::CENTER_CENTER, "V4.5", t::title(big * 0.3), t::pal().frame);
 
-        if !self.started {
-            let blink = !animate || (now * 1.6).fract() < 0.65;
-            if blink {
-                t::text(&p, Pos2::new(cx, area.center().y + 40.0), Align2::CENTER_CENTER, "TAP TO START", t::title(16.0), t::ON_ACCENT);
-            }
-            let tapped = ui.interact(area, ui.id().with("title_tap"), Sense::click()).clicked() || ui.input(|i| i.key_pressed(egui::Key::Enter) || i.key_pressed(egui::Key::Space));
-            if tapped && free {
-                self.started = true;
-            }
-            return None;
-        }
-
         // Menu.
         let latest = slots::latest();
         let sums = self.summaries(now);
@@ -119,7 +101,16 @@ impl Title {
             }
         }
         if button(ui, "NEW GAME", if latest.is_some() { t::ButtonKind::Plain } else { t::ButtonKind::Primary }, true) {
-            req = Some(Request::OpenSheet(super::SLOTS_NEW.into()));
+            // Straight into the game, saved in a free slot; only when all are taken does the
+            // player pick one to replace.
+            match slots::first_empty().and_then(slots::path) {
+                Some(p) => {
+                    slots::ensure_dir();
+                    req = Some(Request::Prepare(p.to_string_lossy().into_owned()));
+                    click(tx, "NewButton");
+                }
+                None => req = Some(Request::OpenSheet(super::SLOTS_NEW.into())),
+            }
         }
         if button(ui, "LOAD", t::ButtonKind::Plain, true) {
             req = Some(Request::OpenSheet(super::SLOTS_LOAD.into()));
@@ -149,7 +140,16 @@ impl Title {
                 t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, msg, t::bold(16.0), t::pal().danger);
             }
         }
+        // Loading lists the saves there are, plus one free slot to import into (not on Android).
+        let spare = if new_game || cfg!(target_os = "android") { None } else { slots::first_empty() };
+        if !new_game && sums.iter().all(Option::is_none) {
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 30.0), Sense::hover());
+            t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, "No saved games yet.", t::bold(18.0), t::pal().grey);
+        }
         for slot in 0..slots::COUNT {
+            if !new_game && sums[slot].is_none() && spare != Some(slot) {
+                continue;
+            }
             let (r, _) = ui.allocate_exact_size(Vec2::new(width, 150.0), Sense::hover());
             let card = r.shrink2(Vec2::new(0.0, 5.0));
             let p = ui.painter().clone();

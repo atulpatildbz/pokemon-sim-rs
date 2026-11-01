@@ -20,6 +20,10 @@ use std::sync::mpsc::Sender;
 /// What the battle screen asks the shell to do.
 pub enum Request {
     OpenSheet(String),
+    /// A POKéMON was picked to send out (the shell answers the program's detail/confirm boxes).
+    SendOut,
+    /// End the battle and start the same kind of fight again.
+    Again,
 }
 
 #[derive(Clone, Copy)]
@@ -62,6 +66,14 @@ pub struct BattleView {
     caught: bool,
     bag_open: bool,
     was_active: bool,
+    /// Log lines of the current turn (since the player last acted), shown together.
+    lines: Vec<String>,
+    /// Counts turns (keeps each turn's text scrolled to its end).
+    turn: u64,
+    /// PC slots sent out recently (slot, species), most recent first; survives between battles.
+    recent: Vec<(usize, i32)>,
+    /// Label of the "fight again" button on the end screen (None = no button).
+    pub again: Option<&'static str>,
     /// Where the battle text box was drawn last frame (game messages go there too).
     pub text_rect: Option<Rect>,
 }
@@ -97,6 +109,10 @@ impl Default for BattleView {
             caught: false,
             bag_open: false,
             was_active: false,
+            lines: Vec::new(),
+            turn: 0,
+            recent: Vec::new(),
+            again: None,
             text_rect: None,
         }
     }
@@ -141,9 +157,19 @@ impl BattleView {
         self.own_species > 0
     }
 
-    /// Take the newly published effects.
+    /// Take the newly published effects. Effects arriving while idle start a new turn.
     pub fn feed(&mut self, fx: Vec<Fx>) {
+        if !fx.is_empty() && !self.busy() {
+            self.lines.clear();
+            self.turn += 1;
+        }
         self.queue.extend(fx);
+    }
+
+    /// Leave the battle screen; only the recent picks are kept.
+    pub fn reset(&mut self) {
+        let recent = std::mem::take(&mut self.recent);
+        *self = BattleView { recent, ..BattleView::default() };
     }
 
     /// Still replaying what the program already did.
@@ -152,19 +178,25 @@ impl BattleView {
     }
 
     fn dur(&self, settings: &Settings, secs: f32) -> f32 {
-        if settings.animations { secs } else { 0.0 }
+        use super::settings::TextSpeed;
+        let k = match settings.text_speed {
+            TextSpeed::Fast => 0.6,
+            _ => 1.0,
+        };
+        if settings.animations { secs * k } else { 0.0 }
     }
 
     fn text_time(&self, settings: &Settings, s: &str) -> f32 {
+        use super::settings::TextSpeed;
         let typing = match settings.text_speed.chars_per_sec() {
             Some(cps) => s.chars().count() as f32 / cps,
             None => 0.0,
         };
         let hold = match settings.text_speed {
-            super::settings::TextSpeed::Slow => 1.6,
-            super::settings::TextSpeed::Normal => 1.0,
-            super::settings::TextSpeed::Fast => 0.6,
-            super::settings::TextSpeed::Instant => 0.7,
+            TextSpeed::Slow => 1.4,
+            TextSpeed::Normal => 0.8,
+            TextSpeed::Fast => 0.3,
+            TextSpeed::Instant => 0.0,
         };
         typing + hold
     }
@@ -189,9 +221,10 @@ impl BattleView {
             Fx::Log(s) => {
                 self.text = s.clone();
                 self.text_at = now;
+                self.lines.push(s.clone());
             }
             Fx::BattleStart { species, hp } => {
-                *self = BattleView { queue: std::mem::take(&mut self.queue), was_active: true, ..BattleView::default() };
+                *self = BattleView { queue: std::mem::take(&mut self.queue), recent: std::mem::take(&mut self.recent), was_active: true, ..BattleView::default() };
                 self.enemy_species = *species;
                 self.own_species = 0;
                 self.hp[1] = HpAnim { from: *hp as f32, to: *hp as f32, max: *hp, at: NEVER };
@@ -244,8 +277,13 @@ impl BattleView {
         }
     }
 
-    /// Advance playback to `now`.
+    /// Advance playback to `now`. Instant text plays a whole turn at once (animations run
+    /// alongside without holding up the next action).
     fn advance(&mut self, now: f64, settings: &Settings) {
+        if settings.text_speed == super::settings::TextSpeed::Instant {
+            self.flush(now, settings);
+            return;
+        }
         loop {
             if let Some((fx, at)) = &self.step {
                 if ((now - at) as f32) < self.step_len(fx, settings) {
@@ -259,38 +297,36 @@ impl BattleView {
         }
     }
 
-    /// Tap: finish typing, or end the current step.
+    /// Apply everything still queued at once (the turn's text stays readable in the box).
+    fn flush(&mut self, now: f64, settings: &Settings) {
+        if self.step.is_none() && self.queue.is_empty() {
+            return;
+        }
+        self.step = None;
+        while let Some(fx) = self.queue.pop_front() {
+            self.start(&fx, now, settings);
+        }
+        self.text_at = NEVER;
+    }
+
+    /// Tap: skip the rest of the turn and jump every running animation to its end.
     fn skip(&mut self, now: f64, settings: &Settings) {
-        if let Some((Fx::Log(s), at)) = &self.step {
-            let typed = match settings.text_speed.chars_per_sec() {
-                Some(cps) => s.chars().count() as f32 / cps,
-                None => 0.0,
-            };
-            if ((now - at) as f32) < typed {
-                self.text_at = NEVER;
-                self.step = Some((Fx::Log(s.clone()), now - typed as f64));
-                return;
+        self.flush(now, settings);
+        for t in [&mut self.intro_at, &mut self.sendout_at, &mut self.heal_at, &mut self.levelup_at, &mut self.ball_at] {
+            if *t > NEVER {
+                *t -= 100.0;
             }
         }
-        if self.step.is_some() {
-            self.step = None;
-            // Jump every running animation to its end.
-            for t in [&mut self.intro_at, &mut self.sendout_at, &mut self.heal_at, &mut self.levelup_at, &mut self.ball_at] {
+        for i in 0..2 {
+            for t in [&mut self.lunge_at[i], &mut self.hit_at[i], &mut self.faint_at[i]] {
                 if *t > NEVER {
                     *t -= 100.0;
                 }
             }
-            for i in 0..2 {
-                for t in [&mut self.lunge_at[i], &mut self.hit_at[i], &mut self.faint_at[i]] {
-                    if *t > NEVER {
-                        *t -= 100.0;
-                    }
-                }
-                self.hp[i].at -= 100.0;
-            }
-            if let Some((_, at)) = &mut self.ball_result {
-                *at -= 100.0;
-            }
+            self.hp[i].at -= 100.0;
+        }
+        if let Some((_, at)) = &mut self.ball_result {
+            *at -= 100.0;
         }
     }
 
@@ -311,6 +347,26 @@ impl BattleView {
                 self.hp[i] = HpAnim { from: v as f32, to: v as f32, max, at: now - 100.0 };
             }
         }
+    }
+
+    /// Remember a POKéMON sent out from PC slot `slot` (0-based) for the quick picks.
+    pub fn note_pick(&mut self, slot: usize, species: i32) {
+        self.recent.retain(|&(s, _)| s != slot);
+        self.recent.insert(0, (slot, species));
+        self.recent.truncate(6);
+    }
+
+    /// PC slots offered as one-tap picks: recent ones first, then the strongest; only POKéMON the
+    /// program would accept (trainer battles have a level range).
+    fn quick_picks(&self, snap: &Snapshot, lv: &crate::vcl::Control) -> Vec<usize> {
+        let info = &snap.info;
+        let n = lv.list_items.len().min(info.pc.len());
+        let ok = |slot: usize| eligible(snap, slot);
+        let mut order: Vec<usize> = self.recent.iter().filter(|&&(s, sp)| s < n && lv.list_items[s].image_index + 1 == sp && ok(s)).map(|&(s, _)| s).collect();
+        let mut rest: Vec<usize> = (0..n).filter(|&s| ok(s) && !order.contains(&s)).collect();
+        rest.sort_by_key(|&s| std::cmp::Reverse(info.pc[s].1));
+        order.extend(rest);
+        order
     }
 
     /// Draw the battle into `area`. Returns requests for the shell.
@@ -337,8 +393,9 @@ impl BattleView {
         // ---------------- layout
         let content_w = area.width().min(860.0);
         let area = Rect::from_center_size(area.center(), Vec2::new(content_w, area.height())).shrink(10.0);
-        let text_h = 92.0;
         let controls_h = 2.0 * 62.0 + 58.0;
+        // A turn's text runs to several lines: tall screens give the box more of the field.
+        let text_h = ((area.height() - controls_h - 16.0) * 0.27).clamp(104.0, 160.0);
         let field_h = (area.height() - text_h - controls_h - 16.0).clamp(160.0, area.width() * 1.3);
         // Centre the whole column when there is room to spare.
         let spare = (area.height() - field_h - text_h - controls_h - 16.0).max(0.0);
@@ -359,24 +416,16 @@ impl BattleView {
             self.skip(now, settings);
         }
 
-        // ---------------- text box
-        let p = ui.painter();
-        t::frame(p, text_rect);
-        let idle_text = self.idle_prompt(f4, snap);
-        let (text, shown) = if self.busy() && matches!(self.step, Some((Fx::Log(_), _))) {
-            let total = self.text.chars().count();
-            let shown = match settings.text_speed.chars_per_sec() {
-                Some(cps) if settings.animations && self.text_at > NEVER => (((now - self.text_at) as f32 * cps) as usize).min(total),
-                _ => total,
-            };
-            (self.text.clone(), shown)
-        } else if self.busy() {
-            (self.text.clone(), usize::MAX)
-        } else {
-            (idle_text, usize::MAX)
-        };
+        // ---------------- text box: the whole turn so far, the newest line typing at the bottom
+        t::frame(ui.painter(), text_rect);
         if snap.dialog.is_none() || self.busy() {
-            draw_typed(p, text_rect.shrink2(Vec2::new(22.0, 18.0)), &text, shown, &ctx);
+            let typing = self.busy() && matches!(self.step, Some((Fx::Log(_), _)));
+            let lines = if self.lines.is_empty() { vec![self.idle_prompt(f4, snap)] } else { self.lines.clone() };
+            let shown_last = match settings.text_speed.chars_per_sec() {
+                Some(cps) if typing && settings.animations && self.text_at > NEVER => ((now - self.text_at) as f32 * cps) as usize,
+                _ => usize::MAX,
+            };
+            draw_lines(ui, text_rect, &lines, shown_last, self.turn);
         }
 
         // ---------------- controls
@@ -400,29 +449,46 @@ impl BattleView {
             self.bag_open = false;
         }
         let half = (controls.width() - gap) / 2.0;
+        let third = (controls.width() - 2.0 * gap) / 3.0;
         let cell = |col: usize, row: usize| Rect::from_min_size(controls.min + Vec2::new(col as f32 * (half + gap), row as f32 * (row_h + gap)), Vec2::new(half, row_h));
+        let cell3 = |k: usize| Rect::from_min_size(controls.min + Vec2::new((k % 3) as f32 * (third + gap), (k / 3) as f32 * (row_h + gap)), Vec2::new(third, row_h));
         let bottom = Rect::from_min_size(controls.min + Vec2::new(0.0, 2.0 * (row_h + gap)), Vec2::new(controls.width(), row_h - 4.0));
         let send = |form: &str, control: &str, ev: Event| {
             let _ = tx.send(Input::Event { form: form.into(), control: control.into(), event: ev });
         };
+        // Keyboard: 1-6 pick a move / POKéMON, Enter continues.
+        let digit = ctx.input(|i| [egui::Key::Num1, egui::Key::Num2, egui::Key::Num3, egui::Key::Num4, egui::Key::Num5, egui::Key::Num6].iter().position(|k| i.key_pressed(*k)));
+        let enter = ctx.input(|i| i.key_pressed(egui::Key::Enter));
 
         if end_visible {
             let r = Rect::from_min_max(controls.min, Pos2::new(controls.right(), controls.min.y + 2.0 * row_h + gap));
-            if t::button(ui, r.shrink2(Vec2::new(controls.width() * 0.18, row_h * 0.35)), "CONTINUE", t::ButtonKind::Primary, can_act).clicked() {
+            let again = self.again;
+            let (cont, again_r) = match again {
+                Some(_) => {
+                    let w = (r.width() - gap) / 2.0;
+                    let y = r.center().y - row_h / 2.0;
+                    (Rect::from_min_size(Pos2::new(r.left(), y), Vec2::new(w, row_h)), Some(Rect::from_min_size(Pos2::new(r.left() + w + gap, y), Vec2::new(w, row_h))))
+                }
+                None => (r.shrink2(Vec2::new(controls.width() * 0.18, row_h * 0.35)), None),
+            };
+            if t::button(ui, cont, "CONTINUE", t::ButtonKind::Primary, can_act).clicked() || (enter && can_act) {
                 send("Form4", "EndButton", Event::Click);
             }
+            if let (Some(label), Some(ar)) = (again, again_r) {
+                if t::button(ui, ar, label, t::ButtonKind::Danger, can_act).clicked() {
+                    request = Some(Request::Again);
+                }
+            }
         } else if self.bag_open {
-            let third = (controls.width() - 2.0 * gap) / 3.0;
             for (k, (btn, name, count, enabled)) in bag_items.iter().enumerate() {
-                let (col, row) = (k % 3, k / 3);
-                let r = Rect::from_min_size(controls.min + Vec2::new(col as f32 * (third + gap), row as f32 * (row_h + gap)), Vec2::new(third, row_h));
+                let r = cell3(k);
                 let resp = t::button(ui, r, "", t::ButtonKind::Plain, can_act && *enabled);
                 let ink = if *enabled { t::pal().ink } else { t::pal().grey };
                 let p = ui.painter();
                 item_icon(p, r.left_center() + Vec2::new(18.0, -2.0), name);
                 t::text(p, r.left_center() + Vec2::new(34.0, -10.0), Align2::LEFT_CENTER, name, t::bold(15.0), ink);
                 t::text(p, r.left_center() + Vec2::new(34.0, 8.0), Align2::LEFT_CENTER, &format!("×{}", count.trim()), t::body(15.0), ink);
-                if resp.clicked() {
+                if resp.clicked() || (digit == Some(k) && can_act && *enabled) {
                     self.bag_open = false;
                     send("Form5", btn, Event::Click);
                 }
@@ -433,21 +499,56 @@ impl BattleView {
                 let Some(item) = rg.items.get(k) else { continue };
                 let (name, ty) = split_move(item);
                 let r = cell(k % 2, k / 2);
-                if move_button(ui, r, &name, &ty, can_act).clicked() {
+                if move_button(ui, r, &name, &ty, can_act).clicked() || (digit == Some(k) && can_act) {
                     let _ = tx.send(Input::SetItemIndex { form: "Form4".into(), control: "RadioGroup1".into(), index: k as i32 });
                     send("Form4", "Button1", Event::Click);
                 }
             }
         } else if !own_chosen {
-            let r = Rect::from_min_max(controls.min, Pos2::new(controls.right(), controls.min.y + 2.0 * row_h + gap));
-            let lv_ok = f5.is_some_and(|f| f.visible && f.c("ListView1").enabled);
-            if t::button(ui, r.shrink2(Vec2::new(controls.width() * 0.12, row_h * 0.35)), "CHOOSE POKéMON", t::ButtonKind::Primary, can_act && lv_ok).clicked() {
-                request = Some(Request::OpenSheet("Form5".into()));
+            // Send-out picker right here: one tap sends a POKéMON out.
+            if let Some(lv) = f5.map(|f| f.c("ListView1")) {
+                let lv_ok = f5.is_some_and(|f| f.visible) && lv.enabled;
+                let order = self.quick_picks(snap, lv);
+                let all = order.len() == lv.list_items.len() && order.len() <= 6;
+                let shown = if all { order.len() } else { order.len().min(5) };
+                let key = lv.small_images.clone().unwrap_or_else(|| "Form4.SmallPKMNImg".into());
+                for (k, &slot) in order.iter().take(shown).enumerate() {
+                    let r = cell3(k);
+                    let it = &lv.list_items[slot];
+                    let level = snap.info.pc.get(slot).map_or(0, |p| p.1);
+                    let enabled = can_act && lv_ok;
+                    let resp = t::button(ui, r, "", t::ButtonKind::Plain, enabled);
+                    let p = ui.painter();
+                    if let Some(tex) = renderer.texture(&ctx, assets, &key, it.image_index) {
+                        let sr = Rect::from_center_size(r.left_center() + Vec2::new(26.0, -3.0), Vec2::splat(44.0));
+                        p.image(tex.id(), sr, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), if enabled { Color32::WHITE } else { Color32::from_white_alpha(120) });
+                    }
+                    let ink = if enabled { t::pal().ink } else { t::pal().grey };
+                    let x = r.left() + 50.0;
+                    let room = r.right() - x - 6.0;
+                    let mut size = 16.0;
+                    while size > 10.0 && p.layout_no_wrap(it.caption.clone(), t::bold(size), ink).size().x > room {
+                        size -= 1.0;
+                    }
+                    t::text(p, Pos2::new(x, r.center().y - 10.0), Align2::LEFT_CENTER, &it.caption, t::bold(size), ink);
+                    t::text(p, Pos2::new(x, r.center().y + 8.0), Align2::LEFT_CENTER, &format!("Lv{level}"), t::body(15.0), ink);
+                    if resp.clicked() || (digit == Some(k) && enabled) {
+                        let _ = tx.send(Input::SetItemIndex { form: "Form5".into(), control: "ListView1".into(), index: slot as i32 });
+                        send("Form5", "ListView1", Event::DblClick);
+                        self.note_pick(slot, it.image_index + 1);
+                        request = Some(Request::SendOut);
+                    }
+                }
+                if !all {
+                    let r = cell3(shown);
+                    if t::button(ui, r, &format!("ALL ({})", lv.list_items.len()), t::ButtonKind::Primary, can_act && lv_ok).clicked() {
+                        request = Some(Request::OpenSheet("Form5".into()));
+                    }
+                }
             }
         }
 
         // Bottom row: BAG / RUN / INFO.
-        let third = (bottom.width() - 2.0 * gap) / 3.0;
         let b = |k: usize| Rect::from_min_size(bottom.min + Vec2::new(k as f32 * (third + gap), 0.0), Vec2::new(third, bottom.height()));
         let bag_label = if self.bag_open { "BACK" } else { "BAG" };
         if t::button(ui, b(0), bag_label, t::ButtonKind::Plain, can_act && !bag_items.is_empty() && !end_visible).clicked() {
@@ -804,20 +905,60 @@ pub fn item_icon(p: &egui::Painter, c: Pos2, name: &str) {
     }
 }
 
-/// Typewriter text: the full layout is computed once so words never jump between lines.
-fn draw_typed(p: &egui::Painter, r: Rect, text: &str, shown: usize, ctx: &egui::Context) {
+/// Whether the program would accept PC slot `slot` (0-based) as the POKéMON to send out.
+pub fn eligible(snap: &Snapshot, slot: usize) -> bool {
+    let info = &snap.info;
+    match info.pc.get(slot) {
+        Some(&(_, lv, _)) => !info.in_trainer_battle || (lv >= info.level_range.0 && lv <= info.level_range.1),
+        None => false,
+    }
+}
+
+/// The turn's lines in the text box. The last line types out (`shown_last` characters); the
+/// layout is computed once so words never jump between lines. Long turns use a smaller font,
+/// then scroll (pinned to the newest line).
+fn draw_lines(ui: &mut egui::Ui, r: Rect, lines: &[String], shown_last: usize, turn: u64) {
     use egui::text::{LayoutJob, TextFormat};
-    let font = t::body(21.0);
-    let split = text.char_indices().nth(shown).map_or(text.len(), |(i, _)| i);
-    let job = |ink: Color32| {
+    let inner = r.shrink2(Vec2::new(20.0, 14.0));
+    let ctx = ui.ctx().clone();
+    let build = |size: f32, ink: Color32| {
+        let font = t::body(size);
         let mut j = LayoutJob::default();
-        j.append(&text[..split], 0.0, TextFormat::simple(font.clone(), ink));
-        j.append(&text[split..], 0.0, TextFormat::simple(font.clone(), Color32::TRANSPARENT));
-        j.wrap.max_width = r.width();
+        for (k, l) in lines.iter().enumerate() {
+            if k > 0 {
+                j.append("\n", 0.0, TextFormat::simple(font.clone(), ink));
+            }
+            let split = if k + 1 == lines.len() { l.char_indices().nth(shown_last).map_or(l.len(), |(i, _)| i) } else { l.len() };
+            j.append(&l[..split], 0.0, TextFormat::simple(font.clone(), ink));
+            j.append(&l[split..], 0.0, TextFormat::simple(font.clone(), Color32::TRANSPARENT));
+        }
+        j.wrap.max_width = inner.width();
         ctx.fonts(|f| f.layout_job(j))
     };
-    p.galley(r.min + Vec2::splat(1.0), job(t::pal().ink_shadow), t::pal().ink_shadow);
-    p.galley(r.min, job(t::pal().ink), t::pal().ink);
+    let mut size = 21.0;
+    let mut g = build(size, t::pal().ink);
+    for smaller in [18.0, 16.0] {
+        if g.size().y <= inner.height() {
+            break;
+        }
+        size = smaller;
+        g = build(size, t::pal().ink);
+    }
+    let shadow = build(size, t::pal().ink_shadow);
+    if g.size().y <= inner.height() {
+        let p = ui.painter();
+        p.galley(inner.min + Vec2::splat(1.0), shadow, t::pal().ink_shadow);
+        p.galley(inner.min, g, t::pal().ink);
+        return;
+    }
+    ui.scope_builder(egui::UiBuilder::new().max_rect(inner), |ui| {
+        ui.set_clip_rect(inner);
+        egui::ScrollArea::vertical().id_salt(("battle_text", turn)).stick_to_bottom(true).auto_shrink([false, false]).scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysHidden).show(ui, |ui| {
+            let (rr, _) = ui.allocate_exact_size(g.size(), Sense::hover());
+            ui.painter().galley(rr.min + Vec2::splat(1.0), shadow, t::pal().ink_shadow);
+            ui.painter().galley(rr.min, g, t::pal().ink);
+        });
+    });
 }
 
 fn ease_out(x: f32) -> f32 {

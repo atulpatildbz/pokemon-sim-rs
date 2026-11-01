@@ -118,8 +118,22 @@ pub enum Fx {
     Evolve { from: i32, to: i32 },
 }
 
+/// Read-only facts about the game state for the front-end (levels are not on any form). Copied
+/// at each publish; never read back by the program.
+#[derive(Debug, Clone, Default)]
+pub struct GameInfo {
+    /// The PC box in order: (species 1-based, level, level it evolves at; 0 = never).
+    pub pc: Vec<(i32, u8, u8)>,
+    /// Levels a trainer battle accepts (tournaments narrow it).
+    pub level_range: (u8, u8),
+    pub in_trainer_battle: bool,
+    pub in_wild_battle: bool,
+    pub in_tournament: bool,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Snapshot {
+    pub info: GameInfo,
     /// Effects published since the front-end last drained them.
     pub fx: Vec<Fx>,
     /// Auto-saves written so far.

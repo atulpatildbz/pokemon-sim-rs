@@ -1,10 +1,11 @@
-//! Three save slots in the app data folder. The game itself still reads and writes ordinary
-//! `.pgs` files: the front-end just answers its Save/Open dialogs with a slot's path.
+//! Save slots in the app data folder. The game itself still reads and writes ordinary `.pgs`
+//! files: the front-end just answers its Save/Open dialogs with a slot's path. A new game takes
+//! the first free slot without asking.
 
 use std::path::PathBuf;
 use crate::store::{self, SystemTime};
 
-pub const COUNT: usize = 3;
+pub const COUNT: usize = 12;
 
 pub fn dir() -> Option<PathBuf> {
     super::settings::app_dir().map(|d| d.join("saves"))
@@ -49,6 +50,11 @@ pub fn summary(slot: usize) -> Option<Summary> {
         lead: species.first().copied().unwrap_or(0),
         modified,
     })
+}
+
+/// The first slot with no file in it (where a new game goes).
+pub fn first_empty() -> Option<usize> {
+    (0..COUNT).find(|&s| path(s).is_some_and(|p| !store::exists(p)))
 }
 
 /// The slot saved most recently (for Continue).

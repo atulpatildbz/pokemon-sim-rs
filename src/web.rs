@@ -123,6 +123,13 @@ impl Dialogs {
             let name = std::path::Path::new(initial).file_name().map(|n| n.to_string_lossy().into_owned()).filter(|n| !n.is_empty());
             return Some(Some(format!("{}{}", store::DOWNLOADS, name.unwrap_or_else(|| "pokemon.htm".into()))));
         }
+        // A new game goes into a free slot without asking.
+        if save {
+            if let Some(p) = slots::first_empty().and_then(slots::path) {
+                slots::ensure_dir();
+                return Some(Some(p.to_string_lossy().into_owned()));
+            }
+        }
         let mut answer = None;
         egui::Modal::new(egui::Id::new("web_file_dialog")).show(ctx, |ui| {
             ui.set_width(360.0);
@@ -130,6 +137,9 @@ impl Dialogs {
             ui.add_space(8.0);
             for slot in 0..slots::COUNT {
                 let sum = slots::summary(slot);
+                if !save && sum.is_none() {
+                    continue;
+                }
                 let mut label = slot_label(slot, &sum);
                 if save && sum.is_some() {
                     label.push_str("  (replaces it)");
@@ -154,6 +164,7 @@ impl Dialogs {
 /// Options rows: download each slot as a .pgs file, or replace it with an uploaded one.
 pub fn save_backups(ui: &mut egui::Ui, width: f32, message: &mut Option<String>) {
     use crate::ui::theme as t;
+    let spare = slots::first_empty();
     for slot in 0..slots::COUNT {
         let tag = format!("slot{slot}");
         if let Some((_, bytes)) = take_upload(&tag) {
@@ -163,6 +174,10 @@ pub fn save_backups(ui: &mut egui::Ui, width: f32, message: &mut Option<String>)
             });
         }
         let sum = slots::summary(slot);
+        // The saves there are, and one free slot to upload into.
+        if sum.is_none() && spare != Some(slot) {
+            continue;
+        }
         let (r, _) = ui.allocate_exact_size(egui::vec2(width, 44.0), egui::Sense::hover());
         let bw = 96.0;
         let label = match &sum {

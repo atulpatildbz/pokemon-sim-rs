@@ -532,6 +532,18 @@ impl World {
         self.publish(false);
     }
 
+    fn game_info(&self) -> crate::vcl::runtime::GameInfo {
+        let m = &self.m;
+        let n = self.lv_count(FORM5, "ListView1");
+        crate::vcl::runtime::GameInfo {
+            pc: (1..=n).map(|i| (m.pc_species(i), m.pc_level(i), m.evolve_level(m.pc_species(i)))).collect(),
+            level_range: (m.min_wild_level(), m.max_wild_level()),
+            in_trainer_battle: m.in_trainer_battle(),
+            in_wild_battle: m.in_wild_battle(),
+            in_tournament: m.in_tournament(),
+        }
+    }
+
     pub fn publish(&mut self, force: bool) {
         let now = Instant::now();
         if !force && now.duration_since(self.last_publish) < Duration::from_millis(16) {
@@ -549,6 +561,7 @@ impl World {
             s.media = self.media.clone();
             s.fx.append(&mut self.fx_queue);
             s.autosaves = self.autosaves;
+            s.info = self.game_info();
             drop(s);
             (b.repaint)();
         }

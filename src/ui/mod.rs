@@ -49,6 +49,26 @@ pub const BATTLE_INFO: &str = "#battleinfo";
 /// Opponent cards for a menu group (path in `cards_path`).
 const CARDS: &str = "#cards";
 
+/// Instruction boxes the game UI makes redundant (it shows the choice right away): answered
+/// with their only button instead of being shown.
+const INSTRUCTIONS: [&str; 6] = [
+    "Select a POKéMON from the Statistics Window. You'll be asked to confirm your choice.",
+    "Doubleclick a POKéMON in the Statistics window to release it. Once you have doubleclicked on a POKéMON, Release Mode will be disabled.",
+    "Release Mode deactivated. Statistics window will now function normally.",
+    "Doubleclick a POKéMON in the Statistics window to evolve it. Once you have doubleclicked on a POKéMON, Evolution Mode will be disabled.",
+    "Evolution Mode cancelled.",
+    "Using Mewtwo's psychic powers, you can fight any POKéMON you want to, and at any level. Please select which POKéMON to fight against, or click Random to face a random POKéMON.",
+];
+
+/// Boxes the program is about to show because of a tap the player just made in the game UI.
+#[derive(Clone, Copy, PartialEq)]
+enum Expect {
+    /// Sending a POKéMON out: skip its detail box and answer "Choose X?" with YES.
+    SendOut,
+    /// Evolve/release mode: skip the detail box; the question is still asked.
+    Mode,
+}
+
 pub struct GameUi {
     pub settings: Settings,
     renderer: Renderer,
@@ -86,6 +106,19 @@ pub struct GameUi {
     /// Web: result of the last save upload, shown under Options › Saves.
     #[cfg(target_arch = "wasm32")]
     web_message: Option<String>,
+    /// Boxes expected after the player's last tap, and when it was made.
+    expect: Option<(Expect, f64)>,
+    /// The dialog answered automatically (not drawn while the answer is on its way).
+    auto_answered: u64,
+    /// The menu item that started the last fight (for REMATCH / FIND ANOTHER).
+    last_fight: Option<String>,
+    /// Fire this menu item once the battle has ended and the hub is back.
+    pending_again: Option<String>,
+    pc_search: String,
+    wild: screens::WildPick,
+    /// The save file of the game being played (a slot), for Export.
+    current_save: Option<String>,
+    export_message: Option<String>,
 }
 
 impl GameUi {
@@ -122,6 +155,14 @@ impl GameUi {
             restyle: false,
             #[cfg(target_arch = "wasm32")]
             web_message: None,
+            expect: None,
+            auto_answered: 0,
+            last_fight: None,
+            pending_again: None,
+            pc_search: String::new(),
+            wild: screens::WildPick::default(),
+            current_save: None,
+            export_message: None,
         };
         ui.apply_visuals(ctx);
         ui
@@ -154,6 +195,7 @@ impl GameUi {
         }
         match (&snap.dialog, self.pending_file.take()) {
             (Some((id, Dialog::File { .. })), Some(path)) => {
+                self.current_save = Some(path.clone());
                 let _ = tx.send(Input::Answer { id: *id, answer: crate::vcl::runtime::DialogAnswer::File(Some(path)) });
                 self.title.refresh();
                 true
@@ -175,7 +217,7 @@ impl GameUi {
                 self.sheet = Some(CARDS.into());
             }
             (Some("close"), _) => self.sheet = None,
-            (Some("start"), _) => self.title.start(),
+            (Some("start"), _) => {} // the title menu shows straight away now
             (Some("continue"), _) => self.title.debug_continue = true,
             (Some("scheme"), Some(key)) => {
                 self.settings.scheme = key.to_string();
@@ -235,7 +277,7 @@ impl GameUi {
         if battle::active(snap) {
             self.battle.feed(fx);
         } else {
-            self.battle = battle::BattleView::default();
+            self.battle.reset();
         }
         self.game(ctx, snap, assets, tx);
     }
@@ -309,8 +351,10 @@ impl GameUi {
         if snap.raise_seq != self.raise_seq {
             self.raise_seq = snap.raise_seq;
             if let Some(top) = snap.z_order.last() {
-                // The battle log comes forward on every battle; it stays a chip instead of covering the fight.
-                if top != "Form7" && sheets.iter().any(|f| f.var == *top) {
+                // The battle log comes forward on every battle, Statistics on every load and the
+                // POKéDEX on every catch: they stay chips instead of covering the screen.
+                let chip_only = top == "Form7" || top == "Form5" || (top == "Form8" && battle::active(snap));
+                if !chip_only && sheets.iter().any(|f| f.var == *top) {
                     self.pending_raise = Some(top.clone());
                 }
             }
@@ -338,6 +382,18 @@ impl GameUi {
 
         if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             self.back(snap, modal_form.as_deref(), now, tx);
+        }
+        let auto = self.auto_answer(snap, now, tx);
+        // REMATCH: once the battle is over and the hub is back, start the same fight.
+        if let Some(item) = self.pending_again.clone() {
+            let f4 = snap.forms.iter().find(|f| f.var == "Form4");
+            if battle::active(snap) && f4.is_some_and(|f| !f.c("EndButton").visible) {
+                // The program went straight on to another battle (tournament, Elite Four).
+                self.pending_again = None;
+            } else if hub::active(snap) && snap.dialog.is_none() {
+                let _ = tx.send(Input::Menu { form: "Form4".into(), item });
+                self.pending_again = None;
+            }
         }
 
         // Layout.
@@ -399,16 +455,30 @@ impl GameUi {
                 ui.multiply_opacity(scene_fade);
                 self.starter.show(ui, scene_rect, snap, &mut self.renderer, assets, tx, animate, now);
             });
+        } else if self.scene == "Form4" && screens::wild_pick_active(snap) {
+            egui::Area::new(Id::new("wild_pick")).movable(false).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
+                ui.set_clip_rect(scene_rect);
+                ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
+                    self.wild.show(ui, scene_rect, snap, &mut self.renderer, assets, tx);
+                });
+            });
         } else if in_battle {
             let mut req = None;
+            self.battle.again = self.again_label(snap);
             egui::Area::new(Id::new("battle")).movable(false).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
                 ui.set_clip_rect(scene_rect);
                 ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
                     req = self.battle.show(ui, scene_rect, snap, &mut self.renderer, assets, &self.settings, tx);
                 });
             });
-            if let Some(battle::Request::OpenSheet(s)) = req {
-                self.sheet = Some(s);
+            match req {
+                Some(battle::Request::OpenSheet(s)) => self.sheet = Some(s),
+                Some(battle::Request::SendOut) => self.expect = Some((Expect::SendOut, now)),
+                Some(battle::Request::Again) => {
+                    let _ = tx.send(Input::Event { form: "Form4".into(), control: "EndButton".into(), event: crate::vcl::runtime::Event::Click });
+                    self.pending_again = self.last_fight.clone();
+                }
+                None => {}
             }
             // Picking a POKéMON from Statistics sends it out: back to the fight.
             let out = self.battle.own_out();
@@ -427,11 +497,18 @@ impl GameUi {
                 });
             });
             match req {
-                Some(hub::Request::OpenSheet(s)) => self.sheet = Some(s),
+                Some(hub::Request::OpenSheet(s)) => {
+                    if s == "Form5" {
+                        // Evolve / release mode: the PC opens for the pick.
+                        self.pc_search.clear();
+                    }
+                    self.sheet = Some(s)
+                }
                 Some(hub::Request::OpenCards(path)) => {
                     self.cards_path = path;
                     self.sheet = Some(CARDS.into());
                 }
+                Some(hub::Request::Fired(item)) => self.last_fight = Some(item),
                 None => {}
             }
         } else if let Some(form) = visible.iter().find(|f| f.var == self.scene) {
@@ -512,7 +589,14 @@ impl GameUi {
                     ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| {
                         ui.set_clip_rect(body);
                         ui.add_enabled_ui(interactive, |ui| match name.as_str() {
-                            "Form5" => screens::pc(ui, snap, &mut self.renderer, assets, tx),
+                            "Form5" => match screens::pc(ui, snap, &mut self.renderer, assets, tx, &mut self.pc_search) {
+                                Some(screens::PcTap::SendOut(slot, species)) => {
+                                    self.battle.note_pick(slot, species);
+                                    self.expect = Some((Expect::SendOut, now));
+                                }
+                                Some(screens::PcTap::Mode) => self.expect = Some((Expect::Mode, now)),
+                                None => {}
+                            },
                             "Form8" => self.dex.show(ui, snap, &mut self.renderer, assets, tx),
                             "FormA" => self.types.show(ui, snap, tx),
                             "FormB" => egui::ScrollArea::vertical().id_salt("corner").show(ui, |ui| self.corner.show(ui, snap, tx, now, animate)).inner,
@@ -534,8 +618,13 @@ impl GameUi {
                     CARDS => {
                         if let Some(f4) = visible.iter().find(|f| f.var == "Form4") {
                             let path = self.cards_path.clone();
-                            let fired = ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| hub::cards(ui, f4, &path, tx, !any_dialog)).inner;
-                            if fired {
+                            let last = self.last_fight.clone();
+                            let fired = ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| hub::cards(ui, f4, &path, tx, !any_dialog, last.as_deref())).inner;
+                            if let Some(item) = fired {
+                                // Fights can be repeated from the end screen (not tournaments).
+                                if matches!(path.get(1).map(String::as_str), Some("FightTrainer1" | "FightWild1")) {
+                                    self.last_fight = Some(item);
+                                }
                                 self.sheet = None;
                             }
                         }
@@ -604,7 +693,7 @@ impl GameUi {
         // Message boxes wait until the battle has replayed what led to them.
         if let Some((id, Dialog::Message { text, kind, buttons })) = &snap.dialog {
             let corner_busy = self.settings.animations && self.corner.busy(now);
-            if !(in_battle && self.battle.busy()) && !evolving_busy && !corner_busy {
+            if !auto && !(in_battle && self.battle.busy()) && !evolving_busy && !corner_busy {
                 // In battle, messages appear in the battle's own text box.
                 let area = match self.battle.text_rect.filter(|_| in_battle) {
                     Some(r) => Rect::from_min_max(Pos2::new(r.left() - 12.0, scene_rect.top()), Pos2::new(r.right() + 12.0, r.bottom() + 12.0)),
@@ -613,6 +702,49 @@ impl GameUi {
                 self.textbox.show(ctx, area, *id, text, *kind, *buttons, &self.settings, tx);
             }
         }
+    }
+
+    /// Answer the current message box if the player has already made that choice in the game UI
+    /// (see [`INSTRUCTIONS`] and [`Expect`]). Returns true while it is being answered.
+    fn auto_answer(&mut self, snap: &Snapshot, now: f64, tx: &Sender<Input>) -> bool {
+        use crate::vcl::runtime::{DialogAnswer, MB_OK, MB_YES};
+        let Some((id, Dialog::Message { text, buttons, .. })) = &snap.dialog else { return false };
+        if self.auto_answered == *id {
+            return true;
+        }
+        let expect = self.expect.filter(|(_, at)| now - at < 6.0).map(|(e, _)| e);
+        let ok_only = *buttons == MB_OK || *buttons == 0;
+        let answer = if ok_only && INSTRUCTIONS.contains(&text.as_str()) {
+            Some(1)
+        } else if ok_only && expect.is_some() && text.starts_with("# ") && text.contains(", XP to next level:") {
+            Some(1)
+        } else if expect == Some(Expect::SendOut) && buttons & MB_YES != 0 && text.starts_with("Choose ") && text.ends_with('?') {
+            self.expect = None;
+            Some(6)
+        } else {
+            None
+        };
+        match answer {
+            Some(a) => {
+                let _ = tx.send(Input::Answer { id: *id, answer: DialogAnswer::Button(a) });
+                self.auto_answered = *id;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The end-of-battle "again" button: the same trainer, or another wild POKéMON. Not inside a
+    /// tournament (CONTINUE goes on to the next round), nor after winning a step of an Elite Four.
+    fn again_label(&self, snap: &Snapshot) -> Option<&'static str> {
+        let item = self.last_fight.as_deref()?;
+        let f4 = snap.forms.iter().find(|f| f.var == "Form4")?;
+        let enabled = f4.menu.iter().find_map(|m| m.find(item)).is_some_and(|m| m.enabled);
+        let chain = matches!(item, "EliteFour1" | "RBYEliteFour1" | "RuSaEliteFour1");
+        if !enabled || snap.info.in_tournament || (chain && self.battle.outcome() == Some(true)) {
+            return None;
+        }
+        Some(if matches!(item, "FindPKMN1" | "Mewtwo1") { "FIND ANOTHER" } else { "REMATCH" })
     }
 
     /// Android Back (and Escape on desktop): answer a message the safe way, else close the open
@@ -751,8 +883,12 @@ impl GameUi {
         let dock = Rect::from_min_max(Pos2::new(scene_rect.left(), screen.bottom() - DOCK_H), Pos2::new(scene_rect.right(), screen.bottom()));
         let has_menu = snap.forms.iter().any(|f| f.var == self.scene && f.visible && !f.menu.is_empty());
         // Positioned at the dock itself (an Area at the origin would grow to cover the screen).
-        egui::Area::new(Id::new("dock")).movable(false).order(Order::Middle).fixed_pos(dock.min).show(ctx, |ui| {
+        // Exactly the dock's size and never moved: an Area that grows is shifted up to stay on
+        // screen, and then it covers (and swallows taps meant for) the scene above it.
+        egui::Area::new(Id::new("dock")).movable(false).constrain(false).order(Order::Middle).fixed_pos(dock.min).show(ctx, |ui| {
             ui.set_min_size(dock.size());
+            ui.set_max_size(dock.size());
+            ui.set_clip_rect(dock);
             let p = ui.painter();
             p.rect_filled(dock, 0.0, Color32::from_black_alpha(60));
             let mut x = dock.left() + 10.0;
@@ -863,6 +999,19 @@ impl GameUi {
             let (r, _) = ui.allocate_exact_size(Vec2::new(width, 26.0), Sense::hover());
             t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, label, t::bold(20.0), t::pal().ink);
         };
+        // Export the game being played (it is kept in the app's own storage).
+        #[cfg(not(target_os = "android"))]
+        if let Some(path) = self.current_save.clone().filter(|_| snap.forms.iter().any(|f| f.var == "Form4" && f.visible)) {
+            row(ui, "This game");
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
+            if t::button(ui, Rect::from_min_size(r.min, Vec2::new(width, 46.0)), "Export save (.pgs)", t::ButtonKind::Plain, true).clicked() {
+                self.export_message = Some(export_save(&path));
+            }
+            if let Some(m) = &self.export_message {
+                let (r, _) = ui.allocate_exact_size(Vec2::new(width, 22.0), Sense::hover());
+                t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, m, t::body(15.0), t::pal().grey);
+            }
+        }
         row(ui, "Text speed");
         let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
         let w = (width - 3.0 * 6.0) / 4.0;
@@ -942,6 +1091,39 @@ impl GameUi {
         t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, "F2 switches between game and classic look.", t::body(16.0), t::pal().grey);
         let _ = MENU_HEIGHT;
     }
+}
+
+/// Hand the current save to the player as a `.pgs` file: a browser download on the web, a
+/// save dialog on desktop. Returns a status line.
+#[cfg(not(target_os = "android"))]
+fn export_save(path: &str) -> String {
+    let bytes = match crate::store::read(path) {
+        Ok(b) => b,
+        Err(_) => return "Nothing saved yet — play a little first.".into(),
+    };
+    let name = slots_name(&bytes);
+    #[cfg(target_arch = "wasm32")]
+    {
+        crate::web::download(&format!("{name}.pgs"), &bytes);
+        "Downloaded.".into()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        match rfd::FileDialog::new().add_filter("POKéMON Simulator save", &["pgs"]).set_file_name(format!("{name}.pgs")).save_file() {
+            Some(to) => match std::fs::write(&to, &bytes) {
+                Ok(()) => format!("Exported to {}", to.display()),
+                Err(e) => e.to_string(),
+            },
+            None => String::new(),
+        }
+    }
+}
+
+/// The player name in a save (its second line), for the exported file's name.
+#[cfg(not(target_os = "android"))]
+fn slots_name(bytes: &[u8]) -> String {
+    let text: String = bytes.iter().map(|&b| b as char).collect();
+    text.lines().nth(1).map(|l| l.trim().chars().filter(|c| c.is_alphanumeric() || *c == ' ').collect::<String>()).filter(|n| !n.is_empty()).unwrap_or_else(|| "save".into())
 }
 
 /// A miniature of a colour scheme: sky backdrop, a text box, a primary and a danger button.

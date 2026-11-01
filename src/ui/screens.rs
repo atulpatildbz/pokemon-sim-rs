@@ -51,101 +51,163 @@ const ITEMS: [(&str, &str); 6] = [
 
 // ===================================================================================== PC
 
+/// What a tap in the PC box asked the program to do (the shell answers the boxes that follow).
+pub enum PcTap {
+    /// Send PC slot (0-based) out in battle.
+    SendOut(usize, i32),
+    /// Evolve or release: only the detail box is skipped, the question stays.
+    Mode,
+}
+
+/// A search field; returns the lower-cased query.
+fn search_field(ui: &mut egui::Ui, text: &mut String, hint: &str) -> String {
+    let (r, _) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 40.0), Sense::hover());
+    ui.put(r.shrink2(Vec2::new(0.0, 2.0)), egui::TextEdit::singleline(text).hint_text(hint).font(t::body(18.0)).margin(Vec2::new(10.0, 6.0)));
+    text.trim().to_lowercase()
+}
+
+/// Shrink `s` to fit `room` points wide, from `size` down.
+fn fit(p: &egui::Painter, s: &str, mut size: f32, room: f32) -> f32 {
+    while size > 10.0 && p.layout_no_wrap(s.to_string(), t::bold(size), Color32::WHITE).size().x > room {
+        size -= 1.0;
+    }
+    size
+}
+
 #[allow(clippy::too_many_arguments)]
-pub fn pc(ui: &mut egui::Ui, snap: &Snapshot, renderer: &mut Renderer, assets: &Assets, tx: &Sender<Input>) {
-    let (Some(f5), Some(f4)) = (form(snap, "Form5"), form(snap, "Form4")) else { return };
+pub fn pc(ui: &mut egui::Ui, snap: &Snapshot, renderer: &mut Renderer, assets: &Assets, tx: &Sender<Input>, search: &mut String) -> Option<PcTap> {
+    let (Some(f5), Some(f4)) = (form(snap, "Form5"), form(snap, "Form4")) else { return None };
     let free = snap.dialog.is_none();
     let width = ui.available_width();
-
-    // Stats.
-    let stats = [
-        ("MONEY", format!("¥{}", cap(f5, "MoneyLbl"))),
-        ("FIGHTS", cap(f5, "FightsLbl")),
-        ("WINS", cap(f5, "WinsLbl")),
-        ("LOSSES", cap(f5, "LossesLbl")),
-        ("WIN %", cap(f5, "Percent")),
-        ("CATCHES", cap(f5, "CapturesLbl")),
-        ("DEX", format!("{} / 386", cap(f5, "OwnedPKMNLbl"))),
-    ];
-    let cols = if width > 520.0 { 4 } else { 3 };
-    let cw = width / cols as f32;
-    let rows = stats.len().div_ceil(cols);
-    let (r, _) = ui.allocate_exact_size(Vec2::new(width, rows as f32 * 46.0 + 8.0), Sense::hover());
-    let p = ui.painter().clone();
-    p.rect_filled(r, 10.0, t::pal().card);
-    for (k, (label, v)) in stats.iter().enumerate() {
-        let pos = r.min + Vec2::new(12.0 + (k % cols) as f32 * cw, 6.0 + (k / cols) as f32 * 46.0);
-        t::text(&p, pos, Align2::LEFT_TOP, label, t::bold(13.0), t::pal().card_ink);
-        t::text(&p, pos + Vec2::new(0.0, 15.0), Align2::LEFT_TOP, v, t::bold(19.0), t::pal().ink);
-    }
-    ui.add_space(6.0);
-
-    // Bag.
-    heading(ui, "Bag");
-    let icols = if width > 520.0 { 6 } else { 3 };
-    let iw = (width - 6.0 * (icols as f32 - 1.0)) / icols as f32;
-    let irows = ITEMS.len().div_ceil(icols);
-    let (r, _) = ui.allocate_exact_size(Vec2::new(width, irows as f32 * 50.0), Sense::hover());
-    for (k, (name, lbl)) in ITEMS.iter().enumerate() {
-        let cell = Rect::from_min_size(r.min + Vec2::new((k % icols) as f32 * (iw + 6.0), (k / icols) as f32 * 50.0), Vec2::new(iw, 44.0));
-        p.rect_filled(cell, 8.0, t::pal().tile);
-        p.rect_stroke(cell, 8.0, egui::Stroke::new(1.5, t::pal().frame_inner), egui::StrokeKind::Inside);
-        item_icon(&p, cell.left_center() + Vec2::new(16.0, 0.0), name);
-        t::text(&p, cell.left_center() + Vec2::new(32.0, -8.0), Align2::LEFT_CENTER, name, t::bold(12.0), t::pal().ink);
-        t::text(&p, cell.left_center() + Vec2::new(32.0, 9.0), Align2::LEFT_CENTER, &format!("×{}", cap(f5, lbl)), t::bold(16.0), t::pal().ink);
-    }
-    ui.add_space(6.0);
-
-    // PC box.
     let lv = f5.c("ListView1");
     let checked = |item: &str| super::hub::find_item(f4, &["Action1", item]).is_some_and(|(m, _)| m.checked);
     let in_battle = f4.c("GroupBox1").visible;
-    let hint = if checked("Evolve1") {
-        "Tap the POKéMON to evolve"
-    } else if checked("ReleasePKMN1") {
-        "Tap the POKéMON to release"
-    } else if in_battle && lv.enabled {
-        "Tap a POKéMON to send it out"
+    let picking = in_battle && lv.enabled;
+    let (evolve, release) = (checked("Evolve1"), checked("ReleasePKMN1"));
+    let p = ui.painter().clone();
+
+    if !picking {
+        // Stats in one strip.
+        let stats = [
+            ("MONEY", format!("¥{}", cap(f5, "MoneyLbl"))),
+            ("WINS", format!("{}/{}", cap(f5, "WinsLbl"), cap(f5, "FightsLbl"))),
+            ("WIN %", cap(f5, "Percent")),
+            ("CAUGHT", cap(f5, "CapturesLbl")),
+            ("DEX", format!("{}/386", cap(f5, "OwnedPKMNLbl"))),
+        ];
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 46.0), Sense::hover());
+        p.rect_filled(r, 10.0, t::pal().card);
+        let cw = (width - 16.0) / stats.len() as f32;
+        for (k, (label, v)) in stats.iter().enumerate() {
+            let pos = r.min + Vec2::new(8.0 + k as f32 * cw, 6.0);
+            t::text(&p, pos, Align2::LEFT_TOP, label, t::bold(11.0), t::pal().card_ink);
+            t::text(&p, pos + Vec2::new(0.0, 14.0), Align2::LEFT_TOP, v, t::bold(fit(&p, v, 18.0, cw - 4.0)), t::pal().ink);
+        }
+        ui.add_space(6.0);
+
+        // Bag: one row of counts (names when there is room).
+        let iw = (width - 5.0 * 6.0) / 6.0;
+        let named = iw >= 104.0;
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, if named { 44.0 } else { 36.0 }), Sense::hover());
+        for (k, (name, lbl)) in ITEMS.iter().enumerate() {
+            let cell = Rect::from_min_size(r.min + Vec2::new(k as f32 * (iw + 6.0), 0.0), Vec2::new(iw, r.height()));
+            p.rect_filled(cell, 8.0, t::pal().tile);
+            p.rect_stroke(cell, 8.0, egui::Stroke::new(1.5, t::pal().frame_inner), egui::StrokeKind::Inside);
+            item_icon(&p, cell.left_center() + Vec2::new(14.0, 0.0), name);
+            let count = format!("×{}", cap(f5, lbl));
+            if named {
+                t::text(&p, cell.left_center() + Vec2::new(28.0, -8.0), Align2::LEFT_CENTER, name, t::bold(12.0), t::pal().ink);
+                t::text(&p, cell.left_center() + Vec2::new(28.0, 9.0), Align2::LEFT_CENTER, &count, t::bold(16.0), t::pal().ink);
+            } else {
+                t::text(&p, cell.left_center() + Vec2::new(26.0, 0.0), Align2::LEFT_CENTER, &count, t::bold(fit(&p, &count, 15.0, iw - 30.0)), t::pal().ink);
+            }
+        }
+        ui.add_space(4.0);
+    }
+
+    // PC box.
+    let (lo, hi) = snap.info.level_range;
+    let hint = if evolve {
+        "Tap the POKéMON to evolve".to_string()
+    } else if release {
+        "Tap the POKéMON to release".to_string()
+    } else if picking && snap.info.in_trainer_battle && (lo, hi) != (2, 100) {
+        format!("Tap a POKéMON to send it out (Lv{lo}–{hi})")
+    } else if picking {
+        "Tap a POKéMON to send it out".to_string()
     } else {
-        "Tap a POKéMON for its details"
+        "Tap a POKéMON for its details".to_string()
     };
-    heading(ui, &format!("PC Box · {}", lv.list_items.len()));
+    let (r, _) = ui.allocate_exact_size(Vec2::new(width, 26.0), Sense::hover());
+    t::text(ui.painter(), r.left_center() + Vec2::new(2.0, 0.0), Align2::LEFT_CENTER, &format!("PC Box · {}", lv.list_items.len()), t::bold(18.0), t::pal().ink);
     let (r, _) = ui.allocate_exact_size(Vec2::new(width, 22.0), Sense::hover());
-    t::text(ui.painter(), r.left_center() + Vec2::new(2.0, 0.0), Align2::LEFT_CENTER, hint, t::body(16.0), if lv.enabled { t::pal().primary } else { t::pal().grey });
-    let tile = 84.0;
+    t::text(ui.painter(), r.left_center() + Vec2::new(2.0, 0.0), Align2::LEFT_CENTER, &hint, t::body(16.0), if lv.enabled { t::pal().primary } else { t::pal().grey });
+    let q = if lv.list_items.len() > 8 { search_field(ui, search, "Search name or number") } else { String::new() };
+    let shown: Vec<usize> = (0..lv.list_items.len())
+        .filter(|&k| {
+            let it = &lv.list_items[k];
+            q.is_empty() || it.caption.to_lowercase().contains(&q) || (it.image_index + 1).to_string() == q.trim_start_matches('#').trim_start_matches('0')
+        })
+        .collect();
+
+    let tile = 76.0;
+    let th = 84.0;
     let cols = ((width + 6.0) / (tile + 6.0)).floor().max(1.0) as usize;
     let tw = (width - 6.0 * (cols as f32 - 1.0)) / cols as f32;
-    let rows = lv.list_items.len().div_ceil(cols);
+    let rows = shown.len().div_ceil(cols);
     let key = lv.small_images.clone().unwrap_or_else(|| "Form4.SmallPKMNImg".into());
-    let enabled = lv.enabled && free && lv.events.on_dbl_click.is_some();
-    egui::ScrollArea::vertical().id_salt("pc_box").auto_shrink([false, false]).show_rows(ui, tile + 6.0, rows, |ui, range| {
+    let can_tap = lv.enabled && free && lv.events.on_dbl_click.is_some();
+    let mut tap = None;
+    egui::ScrollArea::vertical().id_salt("pc_box").auto_shrink([false, false]).show_rows(ui, th + 6.0, rows, |ui, range| {
         for row in range {
-            let (r, _) = ui.allocate_exact_size(Vec2::new(width, tile + 6.0), Sense::hover());
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, th + 6.0), Sense::hover());
             for c in 0..cols {
-                let k = row * cols + c;
-                let Some(it) = lv.list_items.get(k) else { break };
-                let cell = Rect::from_min_size(r.min + Vec2::new(c as f32 * (tw + 6.0), 0.0), Vec2::new(tw, tile));
+                let Some(&k) = shown.get(row * cols + c) else { break };
+                let it = &lv.list_items[k];
+                let info = snap.info.pc.get(k).copied().unwrap_or((it.image_index + 1, 0, 0));
+                let ok = !picking || super::battle::eligible(snap, k);
+                let enabled = can_tap && ok;
+                let cell = Rect::from_min_size(r.min + Vec2::new(c as f32 * (tw + 6.0), 0.0), Vec2::new(tw, th));
                 let resp = ui.interact(cell, ui.id().with(("pc", k)), if enabled { Sense::click() } else { Sense::hover() });
                 let p = ui.painter();
-                let sel = lv.item_index == k as i32;
-                let bg = if sel { t::pal().highlight } else if resp.hovered() && enabled { t::pal().hover } else { Color32::WHITE };
+                let sel = lv.item_index == k as i32 && !picking;
+                let bg = if sel { t::pal().highlight } else if resp.hovered() && enabled { t::pal().hover } else { t::pal().tile };
                 p.rect_filled(cell, 10.0, bg);
                 p.rect_stroke(cell, 10.0, egui::Stroke::new(if sel { 2.5 } else { 1.5 }, if sel { t::pal().primary } else { t::pal().frame_inner }), egui::StrokeKind::Inside);
+                let dim = (in_battle && !enabled) || (picking && !ok);
                 if let Some(tex) = renderer.texture(ui.ctx(), assets, &key, it.image_index) {
                     let s = if tex.size()[0] <= 32 { 64.0 } else { 56.0 };
-                    let img = Rect::from_center_size(cell.center() - Vec2::new(0.0, 9.0), Vec2::splat(s));
-                    p.image(tex.id(), img, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), if enabled || !in_battle { Color32::WHITE } else { Color32::from_white_alpha(140) });
+                    let img = Rect::from_center_size(cell.center() - Vec2::new(0.0, 7.0), Vec2::splat(s));
+                    p.image(tex.id(), img, Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), if dim { Color32::from_white_alpha(110) } else { Color32::WHITE });
                 }
-                let name: String = it.caption.chars().take(10).collect();
-                p.text(cell.center_bottom() - Vec2::new(0.0, 10.0), Align2::CENTER_CENTER, name, t::bold(13.0), t::pal().ink);
+                let ink = if dim { t::pal().grey } else { t::pal().ink };
+                let size = fit(p, &it.caption, 13.0, tw - 8.0);
+                p.text(cell.center_bottom() - Vec2::new(0.0, 10.0), Align2::CENTER_CENTER, &it.caption, t::bold(size), ink);
+                if info.1 > 0 {
+                    p.text(cell.left_top() + Vec2::new(7.0, 5.0), Align2::LEFT_TOP, format!("Lv{}", info.1), t::bold(12.0), ink);
+                }
+                if evolve && info.2 > 0 && info.1 >= info.2 {
+                    let g = p.layout_no_wrap("READY".into(), t::bold(10.0), Color32::WHITE);
+                    let pill = Rect::from_min_size(Pos2::new(cell.right() - g.size().x - 12.0, cell.top() + 5.0), g.size() + Vec2::new(6.0, 2.0));
+                    p.rect_filled(pill, 4.0, Color32::from_rgb(0x40, 0xA0, 0x50));
+                    p.galley(pill.min + Vec2::new(3.0, 1.0), g, Color32::WHITE);
+                }
                 if resp.clicked() {
                     // The original reacts to a double-click; one tap does the same here.
                     select(tx, "Form5", "ListView1", k as i32);
                     send(tx, "Form5", "ListView1", Event::DblClick);
+                    tap = if picking {
+                        Some(PcTap::SendOut(k, it.image_index + 1))
+                    } else if evolve || release {
+                        Some(PcTap::Mode)
+                    } else {
+                        None
+                    };
                 }
             }
         }
     });
+    tap
 }
 
 // ===================================================================================== Mart
@@ -165,6 +227,7 @@ pub fn mart(ui: &mut egui::Ui, snap: &Snapshot, tx: &Sender<Input>) {
 
     // Shelf.
     let rg = f9.c("RadioGroup1");
+    let qty: i32 = f9.c("SpinEdit1").text.trim().parse().unwrap_or(f9.c("SpinEdit1").value);
     let names = ["POKé BALL", "GREAT BALL", "ULTRA BALL", "POTION", "SUPER POTION"];
     for (k, item) in rg.items.iter().enumerate() {
         let (r, _) = ui.allocate_exact_size(Vec2::new(width, 54.0), Sense::hover());
@@ -177,6 +240,11 @@ pub fn mart(ui: &mut egui::Ui, snap: &Snapshot, tx: &Sender<Input>) {
         if resp.clicked() && !sel {
             select(tx, "Form9", "RadioGroup1", k as i32);
             send(tx, "Form9", "RadioGroup1", Event::Click);
+            // Start at one of it (what a tap on + would do).
+            if qty == 0 {
+                let _ = tx.send(Input::SetValue { form: "Form9".into(), control: "SpinEdit1".into(), value: 1 });
+                send(tx, "Form9", "SpinEdit1", Event::Change);
+            }
         }
     }
     ui.add_space(6.0);
@@ -191,7 +259,6 @@ pub fn mart(ui: &mut egui::Ui, snap: &Snapshot, tx: &Sender<Input>) {
     ui.add_space(8.0);
 
     // Quantity stepper (SpinEdit1) and total (Edit1).
-    let qty: i32 = f9.c("SpinEdit1").text.trim().parse().unwrap_or(f9.c("SpinEdit1").value);
     let (r, _) = ui.allocate_exact_size(Vec2::new(width, 52.0), Sense::hover());
     let set_qty = |v: i32| {
         let _ = tx.send(Input::SetValue { form: "Form9".into(), control: "SpinEdit1".into(), value: v.max(0) });
@@ -347,6 +414,86 @@ pub fn evolve_choice(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &
             select(tx, "Form4", "EvolveChoice", k as i32);
             send(tx, "Form4", "EvolveButton", Event::Click);
         }
+    }
+}
+
+// ===================================================================================== wild opponent (Mewtwo)
+
+/// Form4 shows the "fight any POKéMON" controls (ComboBox1, SpinEdit1, Go!/Random/Cancel).
+pub fn wild_pick_active(snap: &Snapshot) -> bool {
+    form(snap, "Form4").is_some_and(|f| f.visible && f.has("ComboBox1") && f.showing(f.idx("ComboBox1")))
+}
+
+#[derive(Default)]
+pub struct WildPick {
+    search: String,
+}
+
+impl WildPick {
+    /// A searchable species list; one tap fights it at the chosen level.
+    #[allow(clippy::too_many_arguments)]
+    pub fn show(&mut self, ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Renderer, assets: &Assets, tx: &Sender<Input>) {
+        let Some(f4) = form(snap, "Form4") else { return };
+        let free = snap.dialog.is_none();
+        let col = Rect::from_center_size(area.center(), Vec2::new(area.width().min(620.0), area.height())).shrink(10.0);
+        let p = ui.painter().clone();
+        p.rect_filled(col, 14.0, t::pal().frame);
+        let inner = col.shrink(t::PX * 1.5);
+        p.rect_filled(inner, 12.0, t::pal().face);
+        let body = inner.shrink(12.0);
+        ui.scope_builder(egui::UiBuilder::new().max_rect(body), |ui| {
+            let width = ui.available_width();
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 30.0), Sense::hover());
+            t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, "Fight any POKéMON", t::bold(22.0), t::pal().ink);
+
+            // Level stepper.
+            let spin = f4.c("SpinEdit1");
+            let level: i32 = spin.text.trim().parse().unwrap_or(spin.value);
+            let (lo, hi) = if spin.min_value < spin.max_value { (spin.min_value.max(1), spin.max_value) } else { (1, 100) };
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 52.0), Sense::hover());
+            t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, &format!("Lv{level}"), t::bold(24.0), t::pal().ink);
+            let steps = [("-10", -10), ("-1", -1), ("+1", 1), ("+10", 10)];
+            let bw = ((width - 90.0) - 6.0 * 3.0) / 4.0;
+            for (k, (label, d)) in steps.iter().enumerate() {
+                let b = Rect::from_min_size(r.min + Vec2::new(90.0 + k as f32 * (bw + 6.0), 2.0), Vec2::new(bw, 46.0));
+                if t::button(ui, b, label, t::ButtonKind::Plain, free).clicked() {
+                    let _ = tx.send(Input::SetValue { form: "Form4".into(), control: "SpinEdit1".into(), value: (level + d).clamp(lo, hi) });
+                }
+            }
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 52.0), Sense::hover());
+            let half = (width - 8.0) / 2.0;
+            if t::button(ui, Rect::from_min_size(r.min, Vec2::new(half, 46.0)), "CANCEL", t::ButtonKind::Plain, free).clicked() {
+                send(tx, "Form4", "Button3", Event::Click);
+            }
+            if t::button(ui, Rect::from_min_size(r.min + Vec2::new(half + 8.0, 0.0), Vec2::new(half, 46.0)), "RANDOM", t::ButtonKind::Danger, free).clicked() {
+                send(tx, "Form4", "Button4", Event::Click);
+            }
+
+            // Species list (the program appends the 386 names again on every show: use the first set).
+            let q = search_field(ui, &mut self.search, "Search name or number");
+            let combo = f4.c("ComboBox1");
+            let entries: Vec<(usize, &String)> = combo.items.iter().take(386).enumerate().filter(|(_, s)| q.is_empty() || s.to_lowercase().contains(&q)).collect();
+            let (r, _) = ui.allocate_exact_size(Vec2::new(width, 20.0), Sense::hover());
+            t::text(ui.painter(), r.left_center() + Vec2::new(2.0, 0.0), Align2::LEFT_CENTER, &format!("Tap a POKéMON to fight it at Lv{level}"), t::body(15.0), t::pal().primary);
+            let row_h = 40.0;
+            egui::ScrollArea::vertical().id_salt("wild_pick").auto_shrink([false, false]).show_rows(ui, row_h, entries.len(), |ui, range| {
+                for (k, s) in &entries[range] {
+                    let (r, resp) = ui.allocate_exact_size(Vec2::new(width, row_h), if free { Sense::click() } else { Sense::hover() });
+                    let p = ui.painter();
+                    if resp.hovered() {
+                        p.rect_filled(r.shrink(1.0), 6.0, t::pal().hover);
+                    }
+                    if let Some(tex) = renderer.texture(ui.ctx(), assets, "Form4.SmallPKMNImg", *k as i32) {
+                        p.image(tex.id(), Rect::from_min_size(r.min + Vec2::new(4.0, 4.0), Vec2::splat(32.0)), Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+                    }
+                    p.text(r.left_center() + Vec2::new(46.0, 0.0), Align2::LEFT_CENTER, s.as_str(), t::body(18.0), t::pal().ink);
+                    if resp.clicked() {
+                        select(tx, "Form4", "ComboBox1", *k as i32);
+                        send(tx, "Form4", "Button2", Event::Click);
+                    }
+                }
+            });
+        });
     }
 }
 
