@@ -149,11 +149,14 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
 
     // ---------------- mode banner (Evolve / Release are toggles in the original menu)
     let mut top = strip.bottom() + 12.0;
-    for (item, text, color) in [("Evolve1", "EVOLUTION MODE — double-tap a POKéMON in the PC", rgb(0x90, 0x58, 0xD0)), ("ReleasePKMN1", "RELEASE MODE — double-tap a POKéMON in the PC", rgb(0x60, 0x90, 0xA8))] {
+    for (item, text, color) in [("Evolve1", "EVOLUTION MODE", rgb(0x90, 0x58, 0xD0)), ("ReleasePKMN1", "RELEASE MODE", rgb(0x60, 0x90, 0xA8))] {
         if find_item(f4, &["Action1", item]).is_some_and(|(m, _)| m.checked) {
             let r = Rect::from_min_size(Pos2::new(area.left(), top), Vec2::new(area.width(), 52.0));
             p.rect_filled(r, 10.0, color);
-            t::text(p, r.left_center() + Vec2::new(14.0, 0.0), Align2::LEFT_CENTER, text, t::bold(16.0), t::ON_ACCENT);
+            let room = r.width() - 214.0 - 14.0;
+            let sub = "Tap a POKéMON in the PC";
+            t::text(p, r.left_center() + Vec2::new(14.0, -9.0), Align2::LEFT_CENTER, text, t::bold(super::screens::fit(p, text, 16.0, room)), t::ON_ACCENT);
+            p.text(r.left_center() + Vec2::new(14.0, 11.0), Align2::LEFT_CENTER, sub, t::bold(super::screens::fit(p, sub, 12.0, room)), t::ON_ACCENT.gamma_multiply(0.85));
             let b = Rect::from_min_size(r.right_top() + Vec2::new(-200.0, 6.0), Vec2::new(90.0, 40.0));
             if t::button(ui, b, "OPEN PC", t::ButtonKind::Plain, free).clicked() {
                 req = Some(Request::OpenSheet("Form5".into()));
@@ -269,9 +272,8 @@ pub fn cards(ui: &mut egui::Ui, form: &Form, path: &[String], tx: &Sender<Input>
         sections.insert(0, Section { title: "Up next".into(), leaves: next, locked: false });
     }
 
-    let cols = if width > 520.0 { 4 } else if width > 330.0 { 3 } else { 2 };
     let gap = 6.0;
-    let cw = (width - gap * (cols as f32 - 1.0)) / cols as f32;
+    let max_cols = if width > 520.0 { 4 } else if width > 330.0 { 3 } else { 2 };
     egui::ScrollArea::vertical().id_salt(("cards", path.join("/"))).show(ui, |ui| {
         for (si, sec) in sections.iter().enumerate() {
             let (r, _) = ui.allocate_exact_size(Vec2::new(width, 28.0), Sense::hover());
@@ -282,6 +284,10 @@ pub fn cards(ui: &mut egui::Ui, form: &Form, path: &[String], tx: &Sender<Input>
                 t::icon(p, Pos2::new(end.right() + 14.0, end.center().y), 12.0, t::Icon::Lock, t::pal().grey);
                 continue;
             }
+            // As many columns as this section's longest name allows (at 12pt or larger).
+            let need = sec.leaves.iter().map(|(m, _)| ui.painter().layout_no_wrap(strip_amp(&m.caption), t::bold(12.0), Color32::WHITE).size().x).fold(0.0, f32::max) + 50.0;
+            let cols = (1..=max_cols).rev().find(|&c| (width - gap * (c as f32 - 1.0)) / c as f32 >= need).unwrap_or(1);
+            let cw = (width - gap * (cols as f32 - 1.0)) / cols as f32;
             for row in sec.leaves.chunks(cols) {
                 let (r, _) = ui.allocate_exact_size(Vec2::new(width, 52.0), Sense::hover());
                 for (k, (m, ok)) in row.iter().enumerate() {
@@ -304,7 +310,7 @@ pub fn cards(ui: &mut egui::Ui, form: &Form, path: &[String], tx: &Sender<Input>
                     while size > 10.0 && p.layout_no_wrap(name.clone(), t::bold(size), ink).size().x > room {
                         size -= 1.0;
                     }
-                    t::text(p, Pos2::new(face_c.x + 18.0, face_c.y), Align2::LEFT_CENTER, &name, t::bold(size), ink);
+                    t::text(&p.with_clip_rect(br.shrink(3.0)), Pos2::new(face_c.x + 18.0, face_c.y), Align2::LEFT_CENTER, &name, t::bold(size), ink);
                     if !m.enabled {
                         t::icon(p, br.right_top() + Vec2::new(-12.0, 12.0), 10.0, t::Icon::Lock, t::pal().grey);
                     }

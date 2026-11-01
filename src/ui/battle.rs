@@ -486,7 +486,7 @@ impl BattleView {
                 let ink = if *enabled { t::pal().ink } else { t::pal().grey };
                 let p = ui.painter();
                 item_icon(p, r.left_center() + Vec2::new(18.0, -2.0), name);
-                t::text(p, r.left_center() + Vec2::new(34.0, -10.0), Align2::LEFT_CENTER, name, t::bold(15.0), ink);
+                t::text(p, r.left_center() + Vec2::new(34.0, -10.0), Align2::LEFT_CENTER, name, t::bold(super::screens::fit(p, name, 15.0, r.width() - 42.0)), ink);
                 t::text(p, r.left_center() + Vec2::new(34.0, 8.0), Align2::LEFT_CENTER, &format!("×{}", count.trim()), t::body(15.0), ink);
                 if resp.clicked() || (digit == Some(k) && can_act && *enabled) {
                     self.bag_open = false;

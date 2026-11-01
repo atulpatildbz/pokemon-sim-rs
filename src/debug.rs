@@ -4,7 +4,7 @@
 //!   `wait <ms>` | `click <Form> <Control>` | `dblclick <Form> <Control>` | `change <Form> <Control>` | `menu <Form> <Item>` |
 //!   `select <Form> <Control> <index>` | `text <Form> <Control> <text>` | `answer <modal result>` |
 //!   `file <path>` (answers the next file dialog) | `shot <name>` | `quit` |
-//!   `tap <x> <y>` (pointer tap, points) | `ui <command>` (front-end only, see `GameUi::debug_command`: `sheet <name>`, `cards <a/b>`)
+//!   `tap <x> <y>` (pointer tap, points) | `type <text>` (keyboard text into the focused field) | `key <name>` (press and release, egui key name e.g. `Enter`, `1`) | `ui <command>` (front-end only, see `GameUi::debug_command`: `sheet <name>`, `cards <a/b>`)
 
 use crate::vcl::runtime::{DialogAnswer, Event, Input, Snapshot};
 use std::collections::VecDeque;
@@ -24,6 +24,10 @@ pub struct Harness {
     pub ui_commands: Vec<String>,
     /// Pointer events to inject (`tap x y` in points): press on one frame, release on the next.
     taps: VecDeque<(egui::Pos2, bool)>,
+    /// Text to type into the focused widget (`type ...`), delivered on the next frame.
+    typed: Option<String>,
+    /// A key to press and release (`key Enter`), delivered on the next frame.
+    key: Option<egui::Key>,
 }
 
 impl Harness {
@@ -42,11 +46,21 @@ impl Harness {
             shot_count: 0,
             ui_commands: Vec::new(),
             taps: VecDeque::new(),
+            typed: None,
+            key: None,
         }
     }
 
     /// eframe raw-input hook: feed one queued pointer event per frame.
     pub fn inject(&mut self, raw: &mut egui::RawInput) {
+        if let Some(text) = self.typed.take() {
+            raw.events.push(egui::Event::Text(text));
+        }
+        if let Some(key) = self.key.take() {
+            for pressed in [true, false] {
+                raw.events.push(egui::Event::Key { key, physical_key: None, pressed, repeat: false, modifiers: Default::default() });
+            }
+        }
         if let Some((pos, pressed)) = self.taps.pop_front() {
             raw.events.push(egui::Event::PointerMoved(pos));
             raw.events.push(egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed, modifiers: Default::default() });
@@ -118,6 +132,8 @@ impl Harness {
                     self.taps.push_back((p, false));
                 }
             }
+            "type" => self.typed = Some(line[5..].to_string()),
+            "key" => self.key = egui::Key::from_name(&s(1)),
             "quit" => return true,
             "ui" => self.ui_commands.push(line[3..].to_string()),
             _ => eprintln!("autoplay: unknown command {line}"),

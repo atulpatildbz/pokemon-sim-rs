@@ -67,7 +67,7 @@ fn search_field(ui: &mut egui::Ui, text: &mut String, hint: &str) -> String {
 }
 
 /// Shrink `s` to fit `room` points wide, from `size` down.
-fn fit(p: &egui::Painter, s: &str, mut size: f32, room: f32) -> f32 {
+pub(crate) fn fit(p: &egui::Painter, s: &str, mut size: f32, room: f32) -> f32 {
     while size > 10.0 && p.layout_no_wrap(s.to_string(), t::bold(size), Color32::WHITE).size().x > room {
         size -= 1.0;
     }
@@ -427,6 +427,10 @@ pub fn wild_pick_active(snap: &Snapshot) -> bool {
 #[derive(Default)]
 pub struct WildPick {
     search: String,
+    /// The level the player last chose; the program resets it to 100 on every show.
+    level: Option<i32>,
+    /// A SetValue restoring `level` is in flight.
+    restoring: bool,
 }
 
 impl WildPick {
@@ -450,6 +454,14 @@ impl WildPick {
             let spin = f4.c("SpinEdit1");
             let level: i32 = spin.text.trim().parse().unwrap_or(spin.value);
             let (lo, hi) = if spin.min_value < spin.max_value { (spin.min_value.max(1), spin.max_value) } else { (1, 100) };
+            match self.level {
+                Some(want) if want != level && !self.restoring && free => {
+                    self.restoring = true;
+                    let _ = tx.send(Input::SetValue { form: "Form4".into(), control: "SpinEdit1".into(), value: want.clamp(lo, hi) });
+                }
+                Some(want) if want == level => self.restoring = false,
+                _ => {}
+            }
             let (r, _) = ui.allocate_exact_size(Vec2::new(width, 52.0), Sense::hover());
             t::text(ui.painter(), r.left_center(), Align2::LEFT_CENTER, &format!("Lv{level}"), t::bold(24.0), t::pal().ink);
             let steps = [("-10", -10), ("-1", -1), ("+1", 1), ("+10", 10)];
@@ -457,7 +469,10 @@ impl WildPick {
             for (k, (label, d)) in steps.iter().enumerate() {
                 let b = Rect::from_min_size(r.min + Vec2::new(90.0 + k as f32 * (bw + 6.0), 2.0), Vec2::new(bw, 46.0));
                 if t::button(ui, b, label, t::ButtonKind::Plain, free).clicked() {
-                    let _ = tx.send(Input::SetValue { form: "Form4".into(), control: "SpinEdit1".into(), value: (level + d).clamp(lo, hi) });
+                    let v = (level + d).clamp(lo, hi);
+                    self.level = Some(v);
+                    self.restoring = true;
+                    let _ = tx.send(Input::SetValue { form: "Form4".into(), control: "SpinEdit1".into(), value: v });
                 }
             }
             let (r, _) = ui.allocate_exact_size(Vec2::new(width, 52.0), Sense::hover());

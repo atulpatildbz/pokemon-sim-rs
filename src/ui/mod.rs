@@ -442,6 +442,10 @@ impl GameUi {
                 None => {}
             }
         } else if self.scene == "Form4" && screens::evolve_choice_active(snap) {
+            // The choice comes from a tap in the PC: put it in front.
+            if self.sheet.as_deref() == Some("Form5") {
+                self.sheet = None;
+            }
             egui::Area::new(Id::new("evolve_choice")).movable(false).order(Order::Middle).fixed_pos(Pos2::ZERO).show(ctx, |ui| {
                 ui.set_clip_rect(scene_rect);
                 ui.add_enabled_ui(self.sheet.is_none() || wide, |ui| {
@@ -714,7 +718,9 @@ impl GameUi {
         }
         let expect = self.expect.filter(|(_, at)| now - at < 6.0).map(|(e, _)| e);
         let ok_only = *buttons == MB_OK || *buttons == 0;
-        let answer = if ok_only && INSTRUCTIONS.contains(&text.as_str()) {
+        // Branched evolution: the "EVOLVE INTO…" screen that follows asks the same thing.
+        let branch = text.starts_with("Please select what you would like to evolve your ");
+        let answer = if ok_only && (INSTRUCTIONS.contains(&text.as_str()) || branch) {
             Some(1)
         } else if ok_only && expect.is_some() && text.starts_with("# ") && text.contains(", XP to next level:") {
             Some(1)
