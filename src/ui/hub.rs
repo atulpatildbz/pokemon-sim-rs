@@ -120,7 +120,7 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
     let stripes = p.with_clip_rect(inner);
     let mut x = inner.left() - inner.height();
     while x < inner.right() {
-        stripes.line_segment([Pos2::new(x, inner.bottom()), Pos2::new(x + inner.height(), inner.top())], Stroke::new(10.0, Color32::from_white_alpha(40)));
+        stripes.line_segment([Pos2::new(x, inner.bottom()), Pos2::new(x + inner.height(), inner.top())], Stroke::new(10.0, Color32::from_white_alpha(if t::dark() { 2 } else { 40 })));
         x += 26.0;
     }
     let name = label_of(f5, "PlayerNameLbl");
@@ -169,8 +169,14 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
         let n = per_row * rows;
         for (k, it) in lv.list_items.iter().take(n).enumerate() {
             let slot = Rect::from_min_size(strip.min + Vec2::new((k % per_row) as f32 * 70.0, (k / per_row) as f32 * 70.0), Vec2::new(64.0, 64.0));
-            p.rect_filled(slot, 10.0, Color32::from_white_alpha(150));
-            p.rect_stroke(slot, 10.0, Stroke::new(2.0, Color32::from_white_alpha(220)), egui::StrokeKind::Inside);
+            // Frosted white tiles; dark schemes use their own tile colour (no glare at night).
+            let (fill, edge) = if t::dark() {
+                (t::pal().tile, t::lerp_color(t::pal().tile, t::pal().ink, 0.12))
+            } else {
+                (Color32::from_white_alpha(150), Color32::from_white_alpha(220))
+            };
+            p.rect_filled(slot, 10.0, fill);
+            p.rect_stroke(slot, 10.0, Stroke::new(2.0, edge), egui::StrokeKind::Inside);
             if let Some(tex) = renderer.texture(ui.ctx(), assets, &key, it.image_index) {
                 let hop = if animate { (((now * 3.0 + k as f64 * 0.7).sin()).max(0.0) * 3.0) as f32 } else { 0.0 };
                 let sz = Vec2::splat(if tex.size()[0] <= 32 { 64.0 } else { 56.0 });

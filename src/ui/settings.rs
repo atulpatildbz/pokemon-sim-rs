@@ -42,11 +42,13 @@ pub struct Settings {
     pub soundtrack: bool,
     /// Colour scheme key (theme::PALETTES).
     pub scheme: String,
+    /// Pixel fonts for all text, instead of the clear font.
+    pub pixel_text: bool,
 }
 
 impl Default for Settings {
     fn default() -> Self {
-        Settings { text_speed: TextSpeed::Normal, classic: false, animations: true, soundtrack: true, scheme: "sky".into() }
+        Settings { text_speed: TextSpeed::Normal, classic: false, animations: true, soundtrack: true, scheme: "sky".into(), pixel_text: false }
     }
 }
 
@@ -92,6 +94,7 @@ impl Settings {
                 ("animations", v) => s.animations = v != "false",
                 ("soundtrack", v) => s.soundtrack = v != "false",
                 ("scheme", v) => s.scheme = v.to_string(),
+                ("text", v) => s.pixel_text = v == "pixel",
                 _ => {}
             }
         }
@@ -104,12 +107,13 @@ impl Settings {
             let _ = crate::store::create_dir_all(dir);
         }
         let text = format!(
-            "text_speed={}\nclassic={}\nanimations={}\nsoundtrack={}\nscheme={}\n",
+            "text_speed={}\nclassic={}\nanimations={}\nsoundtrack={}\nscheme={}\ntext={}\n",
             self.text_speed.label(),
             self.classic,
             self.animations,
             self.soundtrack,
-            self.scheme
+            self.scheme,
+            if self.pixel_text { "pixel" } else { "clear" }
         );
         let _ = crate::store::write(path, text);
     }

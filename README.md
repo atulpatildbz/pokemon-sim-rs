@@ -154,7 +154,7 @@ By default the game runs in a GBA-style skin: one full-screen scene (title / mai
 windows as slide-up sheets (docked on the right on wide screens), a Pokémon-style text box for
 messages, touch-sized buttons and a MENU sheet for the main menu. **F2** (or Options → Classic look)
 switches back to the original Windows forms. Preferences live in `settings.txt` in the app data
-folder, never in the save file. Fonts: Press Start 2P (OFL) and Pixel Operator (CC0), in `fonts/`.
+folder, never in the save file. Fonts: Figtree (OFL), Press Start 2P (OFL) and Pixel Operator (CC0), in `fonts/`.
 
 **Screens.** Title, name entry, starter cards, hub, battle, PC/Statistics, Mart, POKéDEX, Type
 Comparisons, Game Corner and the evolution sequence are drawn as game screens over the original
@@ -178,8 +178,13 @@ tournament the quit penalty is included (applied to a copy, never to the running
 the system kills therefore behaves like a player who quit. `tests/golden.rs` checks auto-save
 never changes the game; `tests/headless.rs` checks the tournament case byte for byte.
 
-**Colour schemes.** Options › Color scheme: Sky (default), Twilight (dark), Pocket (four-shade
-handheld green), Lava, Forest, Sakura and Ocean. Defined in `src/ui/theme.rs` (`PALETTES`).
+**Colour schemes.** Options › Color scheme: Sky (default), Pocket (four-shade handheld green), Lava,
+Forest, Sakura and Ocean, plus four dark ones for playing at night: Twilight (dusky indigo),
+Midnight (neutral slate), Ember (warm amber, little blue light) and Abyss (true black for OLED
+screens). Defined in `src/ui/theme.rs` (`PALETTES`).
+
+**Text.** Options › Text: Clear (default; Figtree, OFL) or Pixel (the GBA pixel fonts). The logo
+keeps its pixel font either way.
 
 `POKEGAME_WINDOW=390x844` opens a phone-shaped window for trying the portrait layout.
 

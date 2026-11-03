@@ -23,7 +23,8 @@ pub struct Palette {
     /// Outlines and the inner rule of text boxes.
     pub frame: Color32,
     pub frame_inner: Color32,
-    /// Backdrop gradient and the strength of its drifting stripes.
+    /// Backdrop gradient and the strength of its drifting stripes (blended in linear light, so on
+    /// dark schemes even 2–3 shows clearly).
     pub sky_top: Color32,
     pub sky_bottom: Color32,
     pub stripe: u8,
@@ -50,7 +51,7 @@ const fn c(rgb: u32) -> Color32 {
     Color32::from_rgb((rgb >> 16) as u8, (rgb >> 8) as u8, rgb as u8)
 }
 
-pub const PALETTES: [Palette; 7] = [
+pub const PALETTES: [Palette; 10] = [
     Palette {
         key: "sky", name: "Sky",
         ink: c(0x404048), ink_shadow: c(0xD0D0C8),
@@ -60,17 +61,6 @@ pub const PALETTES: [Palette; 7] = [
         primary: c(0x3870D8), danger: c(0xE04038), grey: c(0xA8A8B0), track: c(0x485058),
         card: c(0xF8E8B0), card_ink: c(0xA07020),
         field_top: c(0xF8F4E0), field_mid: c(0xE0F0C8), field_low: c(0xB8E098), platform: c(0xA8C880), platform_light: c(0xC8E0A0), grass: c(0x88C070),
-        mono: false,
-    },
-    Palette {
-        key: "twilight", name: "Twilight",
-        ink: c(0xEAE8F6), ink_shadow: c(0x14162A),
-        paper: c(0x2B2E4C), face: c(0x22243C), tile: c(0x33375A), highlight: c(0x4A4290), hover: c(0x3A3E64), disabled: c(0x3A3C52),
-        frame: c(0x0C0D1A), frame_inner: c(0x8C7CF8),
-        sky_top: c(0x141633), sky_bottom: c(0x4A2E6E), stripe: 10,
-        primary: c(0x6A5CE8), danger: c(0xE0506A), grey: c(0x8A8CA8), track: c(0x0E1020),
-        card: c(0x3E3468), card_ink: c(0xF0C460),
-        field_top: c(0x2A2C58), field_mid: c(0x3A4A72), field_low: c(0x2C5A54), platform: c(0x3C6A5E), platform_light: c(0x4E8070), grass: c(0x5E9A80),
         mono: false,
     },
     Palette {
@@ -128,6 +118,53 @@ pub const PALETTES: [Palette; 7] = [
         field_top: c(0xE8F8FC), field_mid: c(0xC8EAF0), field_low: c(0xF0E2B8), platform: c(0xD8C890), platform_light: c(0xEADCA8), grass: c(0x58B0B8),
         mono: false,
     },
+    // Dark schemes: low-saturation backgrounds, faint stripes, no bright surfaces.
+    Palette {
+        key: "twilight", name: "Twilight",
+        ink: c(0xE6E4F0), ink_shadow: c(0x15172A),
+        paper: c(0x262A40), face: c(0x1F2236), tile: c(0x2C3049), highlight: c(0x3D3F6E), hover: c(0x33375A), disabled: c(0x34374C),
+        frame: c(0x0E0F1C), frame_inner: c(0x7C72C8),
+        sky_top: c(0x1A1C33), sky_bottom: c(0x2E2848), stripe: 1,
+        primary: c(0x6458C8), danger: c(0xD0566A), grey: c(0x8C8EA6), track: c(0x0E1020),
+        card: c(0x2E2A4C), card_ink: c(0xE8C06A),
+        field_top: c(0x262A4C), field_mid: c(0x2E3A5C), field_low: c(0x2A4A4A), platform: c(0x345C54), platform_light: c(0x427064), grass: c(0x4E8A72),
+        mono: false,
+    },
+    Palette {
+        key: "midnight", name: "Midnight",
+        ink: c(0xE1E6EC), ink_shadow: c(0x0E1116),
+        paper: c(0x22272E), face: c(0x1C2026), tile: c(0x2A3038), highlight: c(0x2E4A6E), hover: c(0x303842), disabled: c(0x2F343C),
+        frame: c(0x0B0D10), frame_inner: c(0x4F8FD8),
+        sky_top: c(0x12161B), sky_bottom: c(0x1E252E), stripe: 1,
+        primary: c(0x3C78C8), danger: c(0xD05A4E), grey: c(0x8A949F), track: c(0x0B0D10),
+        card: c(0x2A3038), card_ink: c(0xD8B260),
+        field_top: c(0x1E2630), field_mid: c(0x24303A), field_low: c(0x263A34), platform: c(0x30483E), platform_light: c(0x3C5A4C), grass: c(0x4C7A5E),
+        mono: false,
+    },
+    // Warm and amber: little blue light, for playing in bed.
+    Palette {
+        key: "ember", name: "Ember",
+        ink: c(0xF0DFC8), ink_shadow: c(0x140C06),
+        paper: c(0x2A1F17), face: c(0x221912), tile: c(0x32261C), highlight: c(0x5A3A1E), hover: c(0x3A2C20), disabled: c(0x362A20),
+        frame: c(0x0C0805), frame_inner: c(0xD08A3C),
+        sky_top: c(0x140D08), sky_bottom: c(0x2C1C10), stripe: 1,
+        primary: c(0xB86224), danger: c(0xC0443A), grey: c(0xA08C76), track: c(0x0C0805),
+        card: c(0x3A2A1C), card_ink: c(0xE8A84A),
+        field_top: c(0x2A2016), field_mid: c(0x30281A), field_low: c(0x2E3218), platform: c(0x4A4424), platform_light: c(0x5C5430), grass: c(0x7A7234),
+        mono: false,
+    },
+    // True black (OLED screens), teal accents.
+    Palette {
+        key: "abyss", name: "Abyss",
+        ink: c(0xD6D8DC), ink_shadow: c(0x000000),
+        paper: c(0x101114), face: c(0x0A0A0C), tile: c(0x16171B), highlight: c(0x1E3A3A), hover: c(0x1C1D22), disabled: c(0x1A1B1F),
+        frame: c(0x000000), frame_inner: c(0x2E8C84),
+        sky_top: c(0x000000), sky_bottom: c(0x07080A), stripe: 0,
+        primary: c(0x23786F), danger: c(0xB8463E), grey: c(0x7C8088), track: c(0x000000),
+        card: c(0x16171B), card_ink: c(0x4EC0B4),
+        field_top: c(0x0E1014), field_mid: c(0x121619), field_low: c(0x101A16), platform: c(0x1C2A24), platform_light: c(0x24362E), grass: c(0x2F5246),
+        mono: false,
+    },
 ];
 
 static CURRENT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
@@ -143,6 +180,28 @@ pub fn set_scheme(key: &str) {
     CURRENT.store(i, std::sync::atomic::Ordering::Relaxed);
 }
 
+/// A dark scheme (light text on dark surfaces): surfaces that are white in light schemes use the
+/// scheme's own tile colour instead.
+pub fn dark() -> bool {
+    luminance(pal().paper) < 0.35
+}
+
+/// Text style: Clear (Figtree, easy to read; the default) or Pixel (the GBA pixel fonts).
+static CLEAR: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+pub fn set_clear_text(on: bool) {
+    CLEAR.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+pub fn clear_text() -> bool {
+    CLEAR.load(std::sync::atomic::Ordering::Relaxed)
+}
+
+/// Figtree looks bigger than the pixel fonts at the same size; this matches them. Small labels
+/// never go below `MIN_CLEAR`.
+const CLEAR_SCALE: f32 = 0.9;
+const MIN_CLEAR: f32 = 12.0;
+
 pub const HP_GREEN: Color32 = Color32::from_rgb(0x58, 0xD0, 0x80);
 pub const HP_YELLOW: Color32 = Color32::from_rgb(0xF8, 0xC0, 0x18);
 pub const HP_RED: Color32 = Color32::from_rgb(0xF0, 0x58, 0x38);
@@ -150,14 +209,23 @@ pub const HP_RED: Color32 = Color32::from_rgb(0xF0, 0x58, 0x38);
 /// One art pixel in points.
 pub const PX: f32 = 2.0;
 
+fn clear(size: f32, family: &str) -> FontId {
+    FontId::new((size * CLEAR_SCALE).max(MIN_CLEAR.min(size)), FontFamily::Name(family.into()))
+}
 pub fn body(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Name("pixel".into()))
+    if clear_text() { clear(size, "clear") } else { FontId::new(size, FontFamily::Name("pixel".into())) }
 }
 pub fn bold(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Name("pixel_bold".into()))
+    if clear_text() { clear(size, "clear_bold") } else { FontId::new(size, FontFamily::Name("pixel_bold".into())) }
 }
+/// The blocky title font. With clear text only the logo-sized uses keep it; small headings
+/// (which it makes hard to read) use the clear bold font.
 pub fn title(size: f32) -> FontId {
-    FontId::new(size, FontFamily::Name("title".into()))
+    if clear_text() && size < 20.0 {
+        clear(size * 1.25, "clear_bold")
+    } else {
+        FontId::new(size, FontFamily::Name("title".into()))
+    }
 }
 
 /// Register the embedded fonts next to whatever families are already installed.
@@ -166,6 +234,8 @@ pub fn install_fonts(fonts: &mut egui::FontDefinitions) {
         ("pixel", &include_bytes!("../../fonts/PixelOperator.ttf")[..]),
         ("pixel_bold", &include_bytes!("../../fonts/PixelOperator-Bold.ttf")[..]),
         ("title", &include_bytes!("../../fonts/PressStart2P-Regular.ttf")[..]),
+        ("clear", &include_bytes!("../../fonts/Figtree-Medium.ttf")[..]),
+        ("clear_bold", &include_bytes!("../../fonts/Figtree-Bold.ttf")[..]),
     ] {
         fonts.font_data.insert(name.into(), egui::FontData::from_static(bytes).into());
         let mut list = vec![name.to_string()];
@@ -174,10 +244,16 @@ pub fn install_fonts(fonts: &mut egui::FontDefinitions) {
     }
 }
 
-/// Text with the GBA one-pixel drop shadow.
+/// Text with the GBA one-pixel drop shadow (pixel fonts; clear text is drawn without it, except
+/// light text, which keeps a soft one so it stands off coloured buttons).
 pub fn text(p: &egui::Painter, pos: Pos2, anchor: Align2, s: &str, font: FontId, color: Color32) -> Rect {
-    let shadow = if luminance(color) > 0.6 { pal().frame } else { pal().ink_shadow };
-    p.text(pos + Vec2::splat(PX * 0.5), anchor, s, font.clone(), shadow);
+    let light = luminance(color) > 0.6;
+    let pixel = !matches!(&font.family, FontFamily::Name(n) if n.starts_with("clear"));
+    if pixel || (light && !dark()) {
+        let shadow = if light { pal().frame } else { pal().ink_shadow };
+        let shadow = if pixel { shadow } else { shadow.gamma_multiply(0.45) };
+        p.text(pos + Vec2::splat(PX * 0.5), anchor, s, font.clone(), shadow);
+    }
     p.text(pos, anchor, s, font, color)
 }
 
@@ -200,6 +276,9 @@ pub fn backdrop(p: &egui::Painter, r: Rect, t: f64) {
     mesh.add_triangle(1, 2, 3);
     p.add(Shape::mesh(mesh));
     // Drifting diagonal bands.
+    if pal().stripe == 0 {
+        return;
+    }
     let step = 48.0;
     let off = ((t * 12.0) % step as f64) as f32;
     let col = Color32::from_white_alpha(pal().stripe);

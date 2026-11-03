@@ -240,6 +240,7 @@ impl GameUi {
 
     fn apply_visuals(&self, ctx: &egui::Context) {
         t::set_scheme(&self.settings.scheme);
+        t::set_clear_text(!self.settings.pixel_text);
         if self.settings.classic {
             crate::vcl::render::classic_visuals(ctx);
         } else {
@@ -1060,6 +1061,18 @@ impl GameUi {
             if t::button(ui, b, s.label(), kind, true).clicked() {
                 self.settings.text_speed = s;
                 self.settings.save();
+            }
+        }
+        row(ui, "Text");
+        let (r, _) = ui.allocate_exact_size(Vec2::new(width, 50.0), Sense::hover());
+        let half = (width - 6.0) / 2.0;
+        for (k, (label, pixel)) in [("Clear", false), ("Pixel", true)].into_iter().enumerate() {
+            let b = Rect::from_min_size(r.min + Vec2::new(k as f32 * (half + 6.0), 0.0), Vec2::new(half, 46.0));
+            let kind = if self.settings.pixel_text == pixel { t::ButtonKind::Primary } else { t::ButtonKind::Plain };
+            if t::button(ui, b, label, kind, true).clicked() && self.settings.pixel_text != pixel {
+                self.settings.pixel_text = pixel;
+                self.settings.save();
+                t::set_clear_text(!pixel);
             }
         }
         row(ui, "Display");
