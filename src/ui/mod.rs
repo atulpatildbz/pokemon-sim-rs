@@ -1116,7 +1116,8 @@ impl GameUi {
         }
         #[cfg(target_arch = "wasm32")]
         {
-            row(ui, "Saves (kept in this browser)");
+            let synced = crate::web::account(ui, width);
+            row(ui, if synced { "Saves (synced to your account)" } else { "Saves (kept in this browser)" });
             crate::web::save_backups(ui, width, &mut self.web_message);
         }
         ui.add_space(14.0);

@@ -150,11 +150,34 @@ mod imp {
                     if s.set_item(&format!("{KEY}{k}"), &format!("{ms}\n{}", to_latin1(&bytes))).is_err() {
                         web_sys::console::error_1(&format!("pokegame: could not store {k} (browser storage full?)").into());
                     }
+                    notify(&k, ms as f64, Some(&bytes));
                 }
                 None => {
                     let _ = s.remove_item(&format!("{KEY}{k}"));
+                    notify(&k, 0.0, None);
                 }
             }
+        }
+    }
+
+    /// Tell the page a file changed: `window.pokegameFileChanged(path, ms, bytes | null)`, if the
+    /// page defines it (web/cloud.js syncs save slots with it).
+    fn notify(path: &str, ms: f64, bytes: Option<&[u8]>) {
+        use wasm_bindgen::JsCast;
+        let Some(w) = web_sys::window() else { return };
+        let Ok(f) = js_sys::Reflect::get(&w, &"pokegameFileChanged".into()) else { return };
+        let Some(f) = f.dyn_ref::<js_sys::Function>() else { return };
+        let data = match bytes {
+            // Copied out of the (shared) wasm memory.
+            Some(b) => {
+                let arr = js_sys::Uint8Array::new_with_length(b.len() as u32);
+                arr.copy_from(b);
+                arr.into()
+            }
+            None => wasm_bindgen::JsValue::NULL,
+        };
+        if let Err(e) = f.call3(&wasm_bindgen::JsValue::NULL, &path.into(), &ms.into(), &data) {
+            web_sys::console::error_2(&"pokegame: pokegameFileChanged failed".into(), &e);
         }
     }
 }

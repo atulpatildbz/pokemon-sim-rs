@@ -69,6 +69,17 @@
   .linkish { background: none; border: 0; padding: 0; color: var(--accent); text-decoration: underline; font-size: 13px; }
   .linkish:hover { background: none; }
   #status { min-height: 1.5em; }
+  [hidden] { display: none !important; }
+  .google { display: inline-flex; align-items: center; gap: 10px; background: #fff; color: var(--ink); border-color: var(--edge); }
+  .google:hover { background: #f3f6fb; }
+  .google svg { width: 18px; height: 18px; }
+  .who { color: var(--muted); }
+  /* Another device saved while this one is open. */
+  #conflict { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 16px; background: rgba(10, 16, 28, .55); }
+  #conflict .window { width: min(420px, 100%); }
+  #conflict .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; margin-top: 16px; }
+  #conflict .plain { background: #fff; color: var(--ink); border-color: var(--edge); }
+  #conflict .plain:hover { background: #f3f6fb; }
 </style>
 </head>
 <body>
@@ -87,28 +98,56 @@
     </div>
     <div class="body">
       <h1 id="heading">POKéMON Simulator</h1>
-      <p>BirdieSoft's 2004 game, running in your browser. It needs two files from your own copy of the game:</p>
-      <div class="files" id="files">
-        <div><span>PokeGame.exe</span><span id="exe-state">not chosen</span></div>
-        <div><span>POKéGAME.dat</span><span id="dat-state">not chosen</span></div>
+      <div id="signin" hidden>
+        <p>BirdieSoft's 2004 game, running in your browser. Sign in to play; your saves follow your account to every device.</p>
+        <p><button id="google" class="google" type="button">
+          <svg viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.97 10.72A5.4 5.4 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.83.96 4.05l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"/></svg>
+          Sign in with Google</button></p>
+        <p class="hint">Only invited accounts can play.</p>
+      </div>
+      <div id="needfiles" hidden>
+        <p>One more step: the game needs two files from your own copy of it.</p>
+        <div class="files" id="files">
+          <div><span>PokeGame.exe</span><span id="exe-state">not chosen</span></div>
+          <div><span>POKéGAME.dat</span><span id="dat-state">not chosen</span></div>
+        </div>
+        <p><button id="choose" type="button">Choose game files</button></p>
+        <p class="hint">Both are inside the installer, PokeGame32.exe; open it with 7-Zip to extract them. They are kept in this browser and in your account, so your other devices won't ask for them.</p>
       </div>
       <p class="error" id="error" role="alert"></p>
-      <p><button id="choose" type="button">Choose game files</button></p>
-      <p class="hint">Both are inside the installer, PokeGame32.exe; open it with 7-Zip to extract them. They stay in this browser and are never uploaded.</p>
       <p class="hint" id="status" aria-live="polite"></p>
       <div class="foot hint">
-        <span>Saves are kept in this browser. Back them up under Options (⚙).</span>
-        <a href="https://github.com/atulpatildbz/pokemon-sim-rs">Source</a>
+        <span id="account-line">Saves sync to your account. Export or import them under Options (⚙).</span>
+        <span><button id="signout" class="linkish" type="button" hidden>Sign out</button> <a href="https://github.com/atulpatildbz/pokemon-sim-rs">Source</a></span>
       </div>
     </div>
   </section>
   <input id="picker" type="file" accept=".exe,.dat" multiple hidden>
 </main>
 
+<div id="conflict" hidden role="dialog" aria-modal="true" aria-labelledby="conflict-title">
+  <section class="window">
+    <div class="titlebar">Saved on another device</div>
+    <div class="body">
+      <p id="conflict-title"><strong id="conflict-what"></strong></p>
+      <p class="hint">Load it to continue from there. Keeping this one replaces it on your other devices.</p>
+      <div class="actions">
+        <button id="keep" class="plain" type="button">Keep this one</button>
+        <button id="take" type="button">Load it</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script src="convex.js"></script>
+
 <script type="module">
+  import { CONVEX_URL } from './config.js';
+
   const $ = (id) => document.getElementById(id);
   const status = (msg) => { $('status').textContent = msg; };
   const fail = (msg) => { $('error').textContent = msg; status(''); $('choose').disabled = false; };
+  const showOnly = (id) => { for (const s of ['signin', 'needfiles']) $(s).hidden = s !== id; };
 
   // wasm threads need cross-origin isolation; the service worker adds the headers.
   async function isolate() {
@@ -147,6 +186,92 @@
   const putFiles = (exe, dat) => idb('readwrite', (s) => { s.put(exe, 'exe'); s.put(dat, 'dat'); });
   const clearFiles = () => idb('readwrite', (s) => s.clear());
 
+  // ---------------------------------------------------------------- account
+
+  /** The sync connection, once signed in (null: no sync server configured, or offline). */
+  let cloud = null;
+  let online = false;
+
+  function showAccount(email, state) {
+    $('account-line').textContent = `Signed in as ${email}. Saves sync to your account.`;
+    $('signout').hidden = false;
+    // Read by the game's Options › Account (src/web.rs).
+    window.pokegameAccount = { email, state, signOut };
+  }
+  const setSyncState = (state) => { if (window.pokegameAccount) window.pokegameAccount.state = state; };
+
+  async function signOut() {
+    window.pokegameFileChanged = null;
+    await cloud?.signOut();
+    location.reload();
+  }
+
+  /** Sign in (or resume the session). Resolves once the game may start, with its saves merged
+   *  in; never resolves while the sign-in screen is up. */
+  async function account() {
+    if (!CONVEX_URL) return; // a build without a sync server: local saves only
+    const { Cloud } = await import('./cloud.js');
+    cloud = new Cloud(CONVEX_URL);
+    $('google').onclick = async () => {
+      $('google').disabled = true;
+      $('error').textContent = '';
+      try { await cloud.signIn(); } catch (e) { $('google').disabled = false; $('error').textContent = `Could not start sign-in (${e.message || e}).`; }
+    };
+    $('signout').onclick = signOut;
+    const signInScreen = (msg) => {
+      showOnly('signin');
+      if (msg) $('error').textContent = msg;
+      status('');
+      return new Promise(() => {});
+    };
+    try {
+      status('Signing in…');
+      await cloud.finishSignIn();
+    } catch (e) {
+      const refused = /not-allowed/.test(String(e?.data ?? e?.message ?? e));
+      return signInScreen(refused
+        ? 'That Google account is not invited. Sign in with an invited account.'
+        : `Sign-in did not work (${e.message || e}). Try again.`);
+    }
+    let me;
+    try {
+      me = await cloud.connect();
+    } catch (e) {
+      // Signed in before but the server cannot be reached: play with this browser's saves.
+      if (cloud.hasSession) {
+        const email = localStorage.getItem('pokegame-cloud:owner') || 'your account';
+        showAccount(email, 'Offline: saves sync next time');
+        status('');
+        return;
+      }
+      return signInScreen(`Cannot reach the sign-in server (${e.message || e}).`);
+    }
+    if (!me) return signInScreen('');
+    showAccount(me.email, 'Synced');
+    status('Syncing saves…');
+    await cloud.pull();
+    online = true;
+    cloud.onError = () => setSyncState('Could not sync the last save; retrying');
+    status('');
+  }
+
+  // ---------------------------------------------------------------- another device saved
+
+  let changes = [];
+  function onRemoteChange(list) {
+    changes = list;
+    const slots = list.map((c) => c.path.match(/slot(\d+)/)?.[1]).filter(Boolean);
+    const when = new Date(Math.max(...list.map((c) => c.modified))).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    $('conflict-what').textContent =
+      `${slots.length === 1 ? `Save slot ${slots[0]} was` : slots.length ? `Save slots ${slots.join(', ')} were` : 'A save was'} saved on another device at ${when}.`;
+    $('conflict').hidden = false;
+    $('take').focus();
+  }
+  $('take').onclick = () => cloud.takeRemote(changes.map((c) => c.path));
+  $('keep').onclick = () => { cloud.keepLocal(changes); $('conflict').hidden = true; $('game').focus(); };
+
+  // ---------------------------------------------------------------- game
+
   let picked = { exe: null, dat: null };
 
   function show() {
@@ -171,6 +296,7 @@
       await clearFiles();
       picked = { exe: null, dat: null };
       show();
+      showOnly('needfiles');
       fail(`Those files did not work (${e}). Choose PokeGame.exe and POKéGAME.dat as extracted from PokeGame32.exe.`);
     };
     // A crash right after starting means the files are wrong: forget them rather than
@@ -179,7 +305,14 @@
     const early = (e) => { if (Date.now() - started < 15000) recover(e.message || e.reason || e); };
     addEventListener('error', early);
     addEventListener('unhandledrejection', early);
-    setTimeout(() => { removeEventListener('error', early); removeEventListener('unhandledrejection', early); }, 15000);
+    setTimeout(() => {
+      removeEventListener('error', early);
+      removeEventListener('unhandledrejection', early);
+      // The files work: keep a copy in the account for other devices.
+      if (fromPicker && online) cloud.uploadGameFiles(exe, dat).catch((e) => console.error('pokegame: game files not uploaded', e));
+    }, 15000);
+    if (cloud?.hasSession) cloud.watchLocal();
+    if (online) cloud.watchRemote(onRemoteChange);
     $('game').focus();
     try {
       await pkg.start('game', exe, dat);
@@ -220,8 +353,21 @@
       return;
     }
     if (new URLSearchParams(location.search).has('reset')) await clearFiles();
-    const [exe, dat] = [await getFile('exe'), await getFile('dat')];
+    await account();
+    let [exe, dat] = [await getFile('exe'), await getFile('dat')];
+    if (!(exe && dat) && online) {
+      try {
+        const files = await cloud.downloadGameFiles(status);
+        if (files) {
+          [exe, dat] = files;
+          await putFiles(exe, dat);
+        }
+      } catch (e) {
+        console.error('pokegame: could not download the game files', e);
+      }
+    }
     if (exe && dat) play(exe, dat, false);
+    else { showOnly('needfiles'); status(''); }
   })();
 </script>
 </body>

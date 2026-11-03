@@ -67,6 +67,26 @@ cross-origin isolation; `web/coi.js` is a service worker that adds those headers
 Pages cannot. `build.rs` never bundles the game files into a web build. Pushing to `main` deploys
 via `.github/workflows/pages.yml`.
 
+**Accounts and sync (Convex).** With a sync server configured, the page asks for a Google sign-in
+first and only invited accounts can play. Each account's save slots sync through
+[Convex](https://convex.dev) (`convex/`, `web/cloud.js`): before the game starts the newest version
+of every slot is merged into the browser, every save is pushed as the game writes it, and when
+another device saves while this one is open the page asks whether to load that save or keep this
+one. A browser that has signed in before plays offline and syncs later. The player's
+`PokeGame.exe` / `POKéGAME.dat` are kept in the account's private file storage too, so a new device
+needs no files. Export / import under Options still work.
+
+    npm ci
+    npx convex dev                                             # dev deployment (writes .env.local)
+    POKEGAME_CONVEX_URL=https://<deployment>.convex.cloud scripts/build-web.sh
+    npx convex run --prod allowlist:grant '{"email":"someone@gmail.com"}'   # invite someone
+
+A deployment needs `SITE_URL` (where the page lives; localhost is always accepted too),
+`AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` (a Google OAuth client whose redirect URIs include
+`https://<deployment>.convex.site/api/auth/callback/google`) and a signing key pair
+(`node scripts/convex-keys.mjs [--prod]`). The Pages build reads the production URL from the
+repository variable `CONVEX_URL`; without it the page keeps saves in the browser only.
+
 ## How it is faithful
 
 - **Logic**: every event handler is a 1:1 port of the original (addresses cited in the source).

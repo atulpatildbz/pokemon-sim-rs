@@ -3,6 +3,9 @@
 # Needs: nightly Rust with rust-src and wasm32-unknown-unknown, and wasm-bindgen-cli at the
 # same version as the wasm-bindgen crate in Cargo.lock.
 # The game files are never bundled (build.rs refuses for wasm); players pick their own copy.
+# Sign-in and save sync: set POKEGAME_CONVEX_URL to the Convex deployment
+# (e.g. https://<name>.convex.cloud) and run `npm ci` first (the page loads Convex's browser
+# bundle from node_modules). Without it the page keeps saves in the browser only.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -20,5 +23,11 @@ wasm-bindgen --target web --no-typescript --out-dir "$out/pkg" target/wasm32-unk
 if command -v wasm-opt >/dev/null; then
   wasm-opt -O2 --enable-threads --enable-bulk-memory --enable-mutable-globals "$out/pkg/pokegame_bg.wasm" -o "$out/pkg/pokegame_bg.wasm"
 fi
-cp web/index.html web/coi.js fonts/PixelOperator-Bold.ttf "$out/"
+cp web/index.html web/coi.js web/cloud.js fonts/PixelOperator-Bold.ttf "$out/"
+printf 'export const CONVEX_URL = %s;\n' "\"${POKEGAME_CONVEX_URL:-}\"" > "$out/config.js"
+if [ -n "${POKEGAME_CONVEX_URL:-}" ]; then
+  cp node_modules/convex/dist/browser.bundle.js "$out/convex.js"
+else
+  echo "// No sync server in this build (POKEGAME_CONVEX_URL unset)." > "$out/convex.js"
+fi
 echo "built $out ($(du -sh "$out" | cut -f1))"

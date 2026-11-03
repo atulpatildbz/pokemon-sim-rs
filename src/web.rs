@@ -161,6 +161,33 @@ impl Dialogs {
     }
 }
 
+/// Options › Account: the signed-in account and sync state from the page
+/// (`window.pokegameAccount = { email, state, signOut() }`, see web/index.html), with Sign out.
+/// Returns whether saves are synced (an account is signed in).
+pub fn account(ui: &mut egui::Ui, width: f32) -> bool {
+    use crate::ui::theme as t;
+    let Some(acct) = web_sys::window().and_then(|w| js_sys::Reflect::get(&w, &"pokegameAccount".into()).ok()).filter(|a| a.is_object()) else {
+        return false;
+    };
+    let field = |k: &str| js_sys::Reflect::get(&acct, &k.into()).ok().and_then(|v| v.as_string()).unwrap_or_default();
+    let (email, state) = (field("email"), field("state"));
+    ui.add_space(8.0);
+    let (r, _) = ui.allocate_exact_size(egui::vec2(width, 26.0), egui::Sense::hover());
+    t::text(ui.painter(), r.left_center(), egui::Align2::LEFT_CENTER, "Account", t::bold(20.0), t::pal().ink);
+    let (r, _) = ui.allocate_exact_size(egui::vec2(width, 44.0), egui::Sense::hover());
+    let bw = 104.0;
+    let p = ui.painter();
+    t::text(p, r.left_top() + egui::vec2(0.0, 11.0), egui::Align2::LEFT_CENTER, &email, t::body(17.0), t::pal().ink);
+    t::text(p, r.left_top() + egui::vec2(0.0, 32.0), egui::Align2::LEFT_CENTER, &state, t::body(15.0), t::pal().grey);
+    let b = egui::Rect::from_min_size(egui::pos2(r.right() - bw, r.top() + 2.0), egui::vec2(bw, 38.0));
+    if t::button(ui, b, "Sign out", t::ButtonKind::Plain, true).clicked() {
+        if let Some(f) = js_sys::Reflect::get(&acct, &"signOut".into()).ok().and_then(|f| f.dyn_into::<js_sys::Function>().ok()) {
+            let _ = f.call0(&acct);
+        }
+    }
+    true
+}
+
 /// Options rows: download each slot as a .pgs file, or replace it with an uploaded one.
 pub fn save_backups(ui: &mut egui::Ui, width: f32, message: &mut Option<String>) {
     use crate::ui::theme as t;

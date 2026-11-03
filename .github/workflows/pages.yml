@@ -31,7 +31,16 @@ jobs:
         run: |
           v=$(grep -A1 '^name = "wasm-bindgen"$' Cargo.lock | sed -n 's/^version = "\(.*\)"/\1/p')
           cargo install wasm-bindgen-cli --version "$v" --locked
+      # Convex's browser bundle (sign-in and save sync).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      # The Convex production URL comes from the repository variable CONVEX_URL
+      # (Settings › Secrets and variables › Actions › Variables).
       - run: scripts/build-web.sh
+        env:
+          POKEGAME_CONVEX_URL: ${{ vars.CONVEX_URL }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist/web
