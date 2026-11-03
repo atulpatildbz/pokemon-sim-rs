@@ -391,24 +391,40 @@ impl BattleView {
         let mut request = None;
 
         // ---------------- layout
-        let content_w = area.width().min(860.0);
-        let area = Rect::from_center_size(area.center(), Vec2::new(content_w, area.height())).shrink(10.0);
         let controls_h = 2.0 * 62.0 + 58.0;
-        // A turn's text runs to several lines: tall screens give the box more of the field.
-        let text_h = ((area.height() - controls_h - 16.0) * 0.27).clamp(104.0, 160.0);
-        let field_h = (area.height() - text_h - controls_h - 16.0).clamp(160.0, area.width() * 1.3);
-        // Centre the whole column when there is room to spare.
-        let spare = (area.height() - field_h - text_h - controls_h - 16.0).max(0.0);
-        let area = area.translate(Vec2::new(0.0, spare * 0.5));
-        let field = Rect::from_min_size(area.min, Vec2::new(area.width(), field_h));
-        let text_rect = Rect::from_min_size(Pos2::new(area.left(), field.bottom() + 8.0), Vec2::new(area.width(), text_h));
+        let (field, text_rect, controls) = if super::landscape(area) {
+            // Side by side: the field on the left, the text box and controls on the right.
+            let area = Rect::from_center_size(area.center(), Vec2::new(area.width().min(1240.0), area.height())).shrink(10.0);
+            let gap = 12.0;
+            let field_w = (area.width() * 0.58).floor();
+            let h = area.height().min((field_w * 0.85).max(controls_h + 120.0));
+            let top = area.top() + (area.height() - h) / 2.0;
+            let field = Rect::from_min_size(Pos2::new(area.left(), top), Vec2::new(field_w, h));
+            let col = Rect::from_min_max(Pos2::new(field.right() + gap, top), Pos2::new(area.right(), top + h));
+            let text_h = (h - controls_h - 8.0).max(64.0);
+            let text_rect = Rect::from_min_size(col.min, Vec2::new(col.width(), text_h));
+            let controls = Rect::from_min_max(Pos2::new(col.left(), text_rect.bottom() + 8.0), Pos2::new(col.right(), (text_rect.bottom() + 8.0 + controls_h).min(area.bottom())));
+            (field, text_rect, controls)
+        } else {
+            let content_w = area.width().min(860.0);
+            let area = Rect::from_center_size(area.center(), Vec2::new(content_w, area.height())).shrink(10.0);
+            // A turn's text runs to several lines: tall screens give the box more of the field.
+            let text_h = ((area.height() - controls_h - 16.0) * 0.27).clamp(104.0, 160.0);
+            let field_h = (area.height() - text_h - controls_h - 16.0).clamp(160.0, area.width() * 1.3);
+            // Centre the whole column when there is room to spare.
+            let spare = (area.height() - field_h - text_h - controls_h - 16.0).max(0.0);
+            let area = area.translate(Vec2::new(0.0, spare * 0.5));
+            let field = Rect::from_min_size(area.min, Vec2::new(area.width(), field_h));
+            let text_rect = Rect::from_min_size(Pos2::new(area.left(), field.bottom() + 8.0), Vec2::new(area.width(), text_h));
+            let controls = Rect::from_min_max(Pos2::new(area.left(), text_rect.bottom() + 8.0), Pos2::new(area.right(), (text_rect.bottom() + 8.0 + controls_h).min(area.bottom())));
+            (field, text_rect, controls)
+        };
         self.text_rect = Some(text_rect);
-        let controls = Rect::from_min_max(Pos2::new(area.left(), text_rect.bottom() + 8.0), Pos2::new(area.right(), (text_rect.bottom() + 8.0 + controls_h).min(area.bottom())));
 
         // ---------------- field
         let p = ui.painter_at(field.expand(4.0));
         self.draw_field(&p, field, f4, renderer, &ctx, assets, settings, now);
-        let tap = ui.interact(field.union(text_rect), Id::new("battle_tap"), Sense::click());
+        let tap = ui.interact(field, Id::new("battle_tap"), Sense::click()) | ui.interact(text_rect, Id::new("battle_tap_text"), Sense::click());
         if tap.clicked() && self.busy() {
             self.skip(now, settings);
         }

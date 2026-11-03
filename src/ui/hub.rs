@@ -88,11 +88,29 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
     let f5 = snap.forms.iter().find(|f| f.var == "Form5");
     let free = snap.dialog.is_none();
     let mut req = None;
-    let area = Rect::from_center_size(area.center(), Vec2::new(area.width().min(860.0), area.height())).shrink(10.0);
+    // Landscape: trainer card and party on the left, the tiles filling the height on the right.
+    let land = super::landscape(area);
+    let area = Rect::from_center_size(area.center(), Vec2::new(area.width().min(if land { 1240.0 } else { 860.0 }), area.height())).shrink(10.0);
     let wide = area.width() > 620.0;
+    const MAX_TILE_LAND: f32 = 180.0;
+    let (left, right) = if land {
+        let left_w = (area.width() * 0.36).clamp(200.0, 420.0).floor();
+        // Centre the block vertically when the tiles reach their full height.
+        let cols = if area.width() - left_w - 14.0 >= 480.0 { 3 } else { 2 };
+        let rows = TILES.len().div_ceil(cols) as f32;
+        let banners = ["Evolve1", "ReleasePKMN1"].iter().filter(|i| find_item(f4, &["Action1", **i]).is_some_and(|(m, _)| m.checked)).count() as f32;
+        let block_h = banners * 62.0 + rows * MAX_TILE_LAND + (rows - 1.0) * 10.0;
+        let area = if block_h < area.height() { Rect::from_center_size(area.center(), Vec2::new(area.width(), block_h)) } else { area };
+        (Rect::from_min_size(area.min, Vec2::new(left_w, area.height())), Rect::from_min_max(Pos2::new(area.left() + left_w + 14.0, area.top()), area.max))
+    } else {
+        (area, area)
+    };
+    // Stats in a 2×2 grid when the card is narrow (landscape left column).
+    let stat_cols = if land { 2 } else { 4 };
+    let card_h = if land { 64.0 + 2.0 * 38.0 + 10.0 } else { 118.0 };
 
     // ---------------- trainer card
-    let card = Rect::from_min_size(area.min, Vec2::new(area.width(), 118.0));
+    let card = Rect::from_min_size(left.min, Vec2::new(left.width(), card_h));
     let p = &ui.painter().clone();
     p.rect_filled(card.translate(Vec2::new(3.0, 5.0)), 14.0, Color32::from_black_alpha(45));
     p.rect_filled(card, 14.0, t::pal().frame);
@@ -106,34 +124,51 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
         x += 26.0;
     }
     let name = label_of(f5, "PlayerNameLbl");
-    t::text(p, inner.left_top() + Vec2::new(16.0, 12.0), Align2::LEFT_TOP, "TRAINER CARD", t::title(11.0), t::pal().card_ink);
-    t::text(p, inner.left_top() + Vec2::new(16.0, 32.0), Align2::LEFT_TOP, if name.is_empty() { "-" } else { &name }, t::bold(30.0), t::pal().ink);
+    // A narrow card (landscape, sheet open) has room for the PC button or the heading, not both.
+    let pc_w = if land { (inner.width() * 0.34).clamp(76.0, 100.0) } else { 100.0 };
+    if !land || inner.width() - pc_w - 40.0 >= 150.0 {
+        t::text(p, inner.left_top() + Vec2::new(16.0, 12.0), Align2::LEFT_TOP, "TRAINER CARD", t::title(11.0), t::pal().card_ink);
+    }
+    let name = if name.is_empty() { "-".to_string() } else { name };
+    let name_size = if land { super::screens::fit(p, &name, 30.0, inner.width() - pc_w - 36.0) } else { 30.0 };
+    t::text(p, inner.left_top() + Vec2::new(16.0, 32.0), Align2::LEFT_TOP, &name, t::bold(name_size), t::pal().ink);
     let stats = [
         ("MONEY", format!("¥{}", label_of(f5, "MoneyLbl"))),
         ("WINS", super::screens::wins_of(label_of(f5, "WinsLbl"), label_of(f5, "LossesLbl"))),
         ("CAUGHT", label_of(f5, "CapturesLbl")),
         ("DEX", format!("{}/386", label_of(f5, "OwnedPKMNLbl"))),
     ];
-    let col_w = (inner.width() - 32.0) / 4.0;
+    let col_w = (inner.width() - 32.0) / stat_cols as f32;
+    let stat_rows = stats.len().div_ceil(stat_cols);
     for (k, (k_label, v)) in stats.iter().enumerate() {
-        let pos = inner.left_bottom() + Vec2::new(16.0 + k as f32 * col_w, -38.0);
+        let (cx, cy) = (k % stat_cols, k / stat_cols);
+        let pos = inner.left_bottom() + Vec2::new(16.0 + cx as f32 * col_w, -38.0 - (stat_rows - 1 - cy) as f32 * 38.0);
         t::text(p, pos, Align2::LEFT_TOP, k_label, t::bold(13.0), t::pal().card_ink);
-        t::text(p, pos + Vec2::new(0.0, 14.0), Align2::LEFT_TOP, v, t::bold(19.0), t::pal().ink);
+        t::text(p, pos + Vec2::new(0.0, 14.0), Align2::LEFT_TOP, v, t::bold(if land { super::screens::fit(p, v, 19.0, col_w - 8.0) } else { 19.0 }), t::pal().ink);
     }
     // PC button on the card.
-    let pc = Rect::from_min_size(inner.right_top() + Vec2::new(-112.0, 12.0), Vec2::new(100.0, 42.0));
+    let pc = Rect::from_min_size(inner.right_top() + Vec2::new(-pc_w - 12.0, 12.0), Vec2::new(pc_w, 42.0));
     if t::button(ui, pc, "  PC", t::ButtonKind::Primary, f5.is_some_and(|f| f.visible)).clicked() {
         req = Some(Request::OpenSheet("Form5".into()));
     }
     glyph(ui.painter(), pc.left_center() + Vec2::new(22.0, -2.0), 9.0, Glyph::Pc, Color32::WHITE);
 
-    // ---------------- party strip: the first POKéMON in the PC
-    let strip = Rect::from_min_size(Pos2::new(area.left(), card.bottom() + 10.0), Vec2::new(area.width(), 64.0));
-    if let Some(lv) = f5.filter(|f| f.has("ListView1")).map(|f| f.c("ListView1")) {
+    // ---------------- party: the first POKéMON in the PC (a strip; a grid in landscape)
+    let strip = if land {
+        Rect::from_min_max(Pos2::new(left.left(), card.bottom() + 10.0), left.max)
+    } else {
+        Rect::from_min_size(Pos2::new(area.left(), card.bottom() + 10.0), Vec2::new(area.width(), 64.0))
+    };
+    // A short screen gives the strip's room to the tiles.
+    let rows_needed = TILES.len().div_ceil(if wide { 3 } else { 2 });
+    let show_strip = land || area.bottom() - strip.bottom() - 12.0 >= rows_needed as f32 * 56.0 + (rows_needed - 1) as f32 * 10.0;
+    if let Some(lv) = f5.filter(|f| f.has("ListView1") && show_strip).map(|f| f.c("ListView1")) {
         let key = lv.small_images.clone().or(lv.large_images.clone()).unwrap_or_else(|| "Form5.SmallPKMNImg".into());
-        let n = ((strip.width() + 6.0) / 70.0).floor() as usize;
+        let per_row = (((strip.width() + 6.0) / 70.0).floor() as usize).max(1);
+        let rows = if land { (((strip.height() + 6.0) / 70.0).floor() as usize).max(1) } else { 1 };
+        let n = per_row * rows;
         for (k, it) in lv.list_items.iter().take(n).enumerate() {
-            let slot = Rect::from_min_size(strip.min + Vec2::new(k as f32 * 70.0, 0.0), Vec2::new(64.0, 64.0));
+            let slot = Rect::from_min_size(strip.min + Vec2::new((k % per_row) as f32 * 70.0, (k / per_row) as f32 * 70.0), Vec2::new(64.0, 64.0));
             p.rect_filled(slot, 10.0, Color32::from_white_alpha(150));
             p.rect_stroke(slot, 10.0, Stroke::new(2.0, Color32::from_white_alpha(220)), egui::StrokeKind::Inside);
             if let Some(tex) = renderer.texture(ui.ctx(), assets, &key, it.image_index) {
@@ -143,15 +178,29 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
             }
         }
         if lv.list_items.len() > n {
-            t::text(p, strip.right_center(), Align2::RIGHT_CENTER, &format!("+{}", lv.list_items.len() - n), t::bold(18.0), Color32::WHITE);
+            let more = format!("+{}", lv.list_items.len() - n);
+            if land {
+                // On the last slot, which it darkens.
+                let last = Rect::from_min_size(strip.min + Vec2::new((per_row - 1) as f32 * 70.0, (rows - 1) as f32 * 70.0), Vec2::new(64.0, 64.0));
+                p.rect_filled(last, 10.0, Color32::from_black_alpha(130));
+                t::text(p, last.center(), Align2::CENTER_CENTER, &more, t::bold(18.0), Color32::WHITE);
+            } else {
+                t::text(p, strip.right_center(), Align2::RIGHT_CENTER, &more, t::bold(18.0), Color32::WHITE);
+            }
         }
     }
 
     // ---------------- mode banner (Evolve / Release are toggles in the original menu)
-    let mut top = strip.bottom() + 12.0;
+    let mut top = if land {
+        right.top()
+    } else if show_strip {
+        strip.bottom() + 12.0
+    } else {
+        card.bottom() + 12.0
+    };
     for (item, text, color) in [("Evolve1", "EVOLUTION MODE", rgb(0x90, 0x58, 0xD0)), ("ReleasePKMN1", "RELEASE MODE", rgb(0x60, 0x90, 0xA8))] {
         if find_item(f4, &["Action1", item]).is_some_and(|(m, _)| m.checked) {
-            let r = Rect::from_min_size(Pos2::new(area.left(), top), Vec2::new(area.width(), 52.0));
+            let r = Rect::from_min_size(Pos2::new(right.left(), top), Vec2::new(right.width(), 52.0));
             p.rect_filled(r, 10.0, color);
             let room = r.width() - 214.0 - 14.0;
             let sub = "Tap a POKéMON in the PC";
@@ -170,26 +219,49 @@ pub fn show(ui: &mut egui::Ui, area: Rect, snap: &Snapshot, renderer: &mut Rende
     }
 
     // ---------------- tiles
-    let cols = if wide { 3 } else { 2 };
+    let cols = if land {
+        if right.width() >= 480.0 {
+            3
+        } else {
+            2
+        }
+    } else if wide {
+        3
+    } else {
+        2
+    };
     let gap = 10.0;
-    let tw = (area.width() - gap * (cols as f32 - 1.0)) / cols as f32;
+    let tw = (right.width() - gap * (cols as f32 - 1.0)) / cols as f32;
     let rows = TILES.len().div_ceil(cols);
-    let th = ((area.bottom() - top - gap * (rows as f32 - 1.0)) / rows as f32).clamp(56.0, 92.0);
+    let max_th = if land { MAX_TILE_LAND } else { 92.0 };
+    let th = ((right.bottom() - top - gap * (rows as f32 - 1.0)) / rows as f32).clamp(56.0, max_th);
+    // Tall tiles (landscape) put the label under the badge.
+    let stacked = th >= 120.0 && tw >= 140.0;
     for (k, tile) in TILES.iter().enumerate() {
-        let r = Rect::from_min_size(Pos2::new(area.left() + (k % cols) as f32 * (tw + gap), top + (k / cols) as f32 * (th + gap)), Vec2::new(tw, th));
+        let r = Rect::from_min_size(Pos2::new(right.left() + (k % cols) as f32 * (tw + gap), top + (k / cols) as f32 * (th + gap)), Vec2::new(tw, th));
         let Some((item, enabled)) = find_item(f4, tile.path) else { continue };
         let enabled = enabled && free;
         let resp = t::button(ui, r, "", t::ButtonKind::Plain, enabled);
         let p = ui.painter();
         let press = if resp.is_pointer_button_down_on() { t::PX * 2.0 } else { 0.0 };
         let face = Rect::from_min_max(r.min + Vec2::new(t::PX, t::PX + press), Pos2::new(r.max.x - t::PX, r.max.y - t::PX * 3.0 + press));
-        let badge = Rect::from_center_size(face.left_center() + Vec2::new(face.height() * 0.5 + 2.0, 0.0), Vec2::splat(face.height() * 0.72));
+        let badge = if stacked {
+            let s = (face.height() * 0.5).min(84.0);
+            Rect::from_center_size(Pos2::new(face.center().x, face.top() + face.height() * 0.42), Vec2::splat(s))
+        } else {
+            Rect::from_center_size(face.left_center() + Vec2::new(face.height() * 0.5 + 2.0, 0.0), Vec2::splat(face.height() * 0.72))
+        };
         let badge_col = if t::pal().mono { t::pal().primary } else { tile.color };
         p.rect_filled(badge, CornerRadius::same(10), if enabled { badge_col } else { t::pal().grey });
         glyph(p, badge.center(), badge.width() * 0.3, tile.glyph, Color32::WHITE);
         let ink = if enabled { t::pal().ink } else { t::pal().grey };
-        let size = super::screens::fit(p, tile.label, if tw < 190.0 { 15.0 } else { 19.0 }, face.right() - badge.right() - 18.0);
-        t::text(p, Pos2::new(badge.right() + 10.0, face.center().y), Align2::LEFT_CENTER, tile.label, t::bold(size), ink);
+        if stacked {
+            let size = super::screens::fit(p, tile.label, 19.0, face.width() - 20.0);
+            t::text(p, Pos2::new(face.center().x, (badge.bottom() + face.bottom()) / 2.0), Align2::CENTER_CENTER, tile.label, t::bold(size), ink);
+        } else {
+            let size = super::screens::fit(p, tile.label, if tw < 190.0 { 15.0 } else { 19.0 }, face.right() - badge.right() - 18.0);
+            t::text(p, Pos2::new(badge.right() + 10.0, face.center().y), Align2::LEFT_CENTER, tile.label, t::bold(size), ink);
+        }
         if item.checked {
             t::icon(p, face.right_top() + Vec2::new(-14.0, 14.0), 14.0, t::Icon::Check, tile.color);
         } else if !item.enabled {
