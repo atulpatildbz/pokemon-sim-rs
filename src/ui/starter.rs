@@ -35,13 +35,28 @@ impl Starter {
         let free = snap.dialog.is_none();
         let p = ui.painter().clone();
         let col = Rect::from_center_size(area.center(), Vec2::new(area.width().min(620.0), area.height())).shrink(10.0);
-        t::text(&p, col.center_top() + Vec2::new(0.0, 34.0), Align2::CENTER_CENTER, "CHOOSE YOUR", t::title(14.0), t::ON_ACCENT);
-        t::text(&p, col.center_top() + Vec2::new(0.0, 62.0), Align2::CENTER_CENTER, "FIRST POKéMON!", t::title(18.0), Color32::from_rgb(0xF8, 0xD0, 0x30));
+        // The column needs 490 points; a wide short screen puts the heading and the button
+        // beside the carousel.
+        let split = col.height() < 100.0 + 260.0 + 130.0 && super::landscape(area);
+        let all = Rect::from_center_size(area.center(), Vec2::new(area.width().min(1000.0), area.height())).shrink(10.0);
+        let side = Rect::from_min_max(all.min, Pos2::new(all.left() + (all.width() * 0.4).floor(), all.bottom()));
+        let col = if split { Rect::from_min_max(Pos2::new(side.right() + 10.0, all.top()), all.max) } else { col };
+        let (head, head_y) = if split { (side.center().x, side.center().y - 70.0) } else { (col.center().x, col.top() + 34.0) };
+        t::text(&p, Pos2::new(head, head_y), Align2::CENTER_CENTER, "CHOOSE YOUR", t::title(14.0), t::ON_ACCENT);
+        t::text(&p, Pos2::new(head, head_y + 28.0), Align2::CENTER_CENTER, "FIRST POKéMON!", t::title(if split { super::screens::fit(&p, "FIRST POKéMON!", 18.0, side.width() - 8.0) } else { 18.0 }), Color32::from_rgb(0xF8, 0xD0, 0x30));
 
         // Carousel with swipe.
-        let card_w = (col.width() * 0.72).min(360.0);
-        let card_h = (col.height() - 230.0).clamp(260.0, 420.0);
-        let strip = Rect::from_center_size(Pos2::new(col.center().x, col.top() + 100.0 + card_h / 2.0), Vec2::new(col.width(), card_h));
+        let (card_w, card_h, strip) = if split {
+            let card_h = col.height() - 34.0;
+            let card_w = (col.width() * 0.62).min(card_h * 0.86).min(360.0);
+            (card_w, card_h, Rect::from_min_size(col.min, Vec2::new(col.width(), card_h)))
+        } else {
+            let card_w = (col.width() * 0.72).min(360.0);
+            let card_h = (col.height() - 230.0).clamp(260.0, 420.0);
+            (card_w, card_h, Rect::from_center_size(Pos2::new(col.center().x, col.top() + 100.0 + card_h / 2.0), Vec2::new(col.width(), card_h)))
+        };
+        // Neighbouring cards peek in from the sides, but not over the heading.
+        let p = if split { p.with_clip_rect(col.expand2(Vec2::new(0.0, 10.0))) } else { p };
         let resp = ui.interact(strip, ui.id().with("starter_swipe"), Sense::click_and_drag());
         if resp.dragged() {
             self.drag += resp.drag_delta().x;
@@ -136,7 +151,11 @@ impl Starter {
             let c = Pos2::new(strip.center().x + (k as f32 - (n as f32 - 1.0) / 2.0) * 18.0, strip.bottom() + 18.0);
             p.circle_filled(c, if k == self.index { 6.0 } else { 4.0 }, if k == self.index { t::ON_ACCENT } else { Color32::from_white_alpha(120) });
         }
-        let b = Rect::from_center_size(Pos2::new(col.center().x, strip.bottom() + 70.0), Vec2::new(card_w.min(320.0), 60.0));
+        let b = if split {
+            Rect::from_center_size(Pos2::new(side.center().x, head_y + 110.0), Vec2::new((side.width() - 16.0).min(320.0), 60.0))
+        } else {
+            Rect::from_center_size(Pos2::new(col.center().x, strip.bottom() + 70.0), Vec2::new(card_w.min(320.0), 60.0))
+        };
         let name = &lv.list_items[self.index].caption;
         if t::button(ui, b, &format!("I CHOOSE {}!", name.to_uppercase()), t::ButtonKind::Primary, free && !self.sent).clicked() {
             self.sent = true;

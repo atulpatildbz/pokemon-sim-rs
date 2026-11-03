@@ -49,29 +49,46 @@ impl Title {
         let free = snap.dialog.is_none();
         let p = ui.painter().clone();
         let mut req = None;
-        let col_w = area.width().min(520.0);
-        let cx = area.center().x;
+        let latest = slots::latest();
+        let buttons = 4 + latest.is_some() as usize + !cfg!(target_os = "android") as usize;
+        // One column (logo over menu) when it fits; otherwise, on a wide short screen, the logo
+        // and parade on the left and the menu on the right.
+        let col_w1 = area.width().min(520.0);
+        let big1 = (col_w1 / 9.0).clamp(26.0, 52.0);
+        let needed = area.height() * 0.16 + big1 * 2.3 + buttons as f32 * 58.0 + 90.0;
+        let split = needed > area.height() && area.width() >= area.height() * 1.25;
+        let (logo_area, menu_area) = if split {
+            let l = Rect::from_min_max(area.min, Pos2::new(area.center().x, area.bottom()));
+            (l, Rect::from_min_max(Pos2::new(area.center().x, area.top()), area.max))
+        } else {
+            (area, area)
+        };
+        let col_w = logo_area.width().min(520.0);
+        let cx = logo_area.center().x;
 
         // Sprite parade along the bottom.
         let parade_y = area.bottom() - 70.0;
-        let n = 9;
+        let n = if split { 5 } else { 9 };
+        let parade = logo_area;
+        let pp = if split { p.with_clip_rect(logo_area) } else { p.clone() };
         for k in 0..n {
             let speed = 40.0;
-            let span = area.width() + 140.0;
-            let x = if animate { area.left() - 70.0 + ((now as f32 * speed + k as f32 * span / n as f32) % span) } else { area.left() + (k as f32 + 0.5) * area.width() / n as f32 };
+            let span = parade.width() + 140.0;
+            let x = if animate { parade.left() - 70.0 + ((now as f32 * speed + k as f32 * span / n as f32) % span) } else { parade.left() + (k as f32 + 0.5) * parade.width() / n as f32 };
             let species = [25, 1, 4, 7, 133, 39, 52, 54, 143][k];
             if let Some(tex) = renderer.texture(ui.ctx(), assets, "Form4.PKMNImages", species - 1) {
                 let hop = if animate { ((now * 6.0 + k as f64).sin().abs() * 8.0) as f32 } else { 0.0 };
                 let r = Rect::from_center_size(Pos2::new(x, parade_y - hop), Vec2::splat(64.0));
                 // Walking right: flip so they face the way they move.
-                p.image(tex.id(), r, Rect::from_min_max(Pos2::new(1.0, 0.0), Pos2::new(0.0, 1.0)), Color32::WHITE);
+                pp.image(tex.id(), r, Rect::from_min_max(Pos2::new(1.0, 0.0), Pos2::new(0.0, 1.0)), Color32::WHITE);
             }
         }
 
         // Logo.
-        let logo_y = area.top() + area.height() * 0.16;
-        let bob = if animate { ((now * 1.5).sin() * 4.0) as f32 } else { 0.0 };
         let big = (col_w / 9.0).clamp(26.0, 52.0);
+        // Split: the logo sits in the middle of the space above the parade.
+        let logo_y = if split { area.top() + (area.height() - 110.0) * 0.5 - big * 0.7 } else { area.top() + area.height() * 0.16 };
+        let bob = if animate { ((now * 1.5).sin() * 4.0) as f32 } else { 0.0 };
         for (dx, dy, c) in [(4.0, 4.0, t::pal().frame), (0.0, 0.0, Color32::from_rgb(0xF8, 0xD0, 0x30))] {
             p.text(Pos2::new(cx + dx, logo_y + bob + dy), Align2::CENTER_CENTER, "POKéMON", t::title(big), c);
         }
@@ -80,11 +97,13 @@ impl Title {
         p.text(Pos2::new(cx, logo_y + bob + big * 1.55), Align2::CENTER_CENTER, "V4.5", t::title(big * 0.3), t::pal().frame);
 
         // Menu.
-        let latest = slots::latest();
         let sums = self.summaries(now);
-        let bw = (col_w - 32.0).min(360.0);
-        let mut y = logo_y + big * 2.3;
-        let row = 58.0;
+        let (cx, bw, mut y, row) = if split {
+            let row = ((menu_area.height() - 24.0) / buttons as f32).min(58.0);
+            (menu_area.center().x, (menu_area.width() - 48.0).min(360.0), menu_area.center().y - row * buttons as f32 / 2.0, row)
+        } else {
+            (cx, (col_w - 32.0).min(360.0), logo_y + big * 2.3, 58.0)
+        };
         let mut button = |ui: &mut egui::Ui, label: &str, kind: t::ButtonKind, enabled: bool| {
             let r = Rect::from_center_size(Pos2::new(cx, y + row / 2.0), Vec2::new(bw, row - 10.0));
             y += row;

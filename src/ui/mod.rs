@@ -40,6 +40,12 @@ const DOCK_H: f32 = 64.0;
 const SAFE_TOP: f32 = 44.0;
 const SAFE_BOTTOM: f32 = 20.0;
 
+/// A scene area wide enough to lay a screen out side by side (laptops, desktop windows, a
+/// phone held sideways). Portrait screens keep their single column.
+pub fn landscape(area: Rect) -> bool {
+    area.width() >= area.height() * 1.25 && area.width() >= 520.0
+}
+
 /// Sheets that are not forms.
 pub const OPTIONS: &str = "#options";
 pub const SLOTS_NEW: &str = "#slots_new";
